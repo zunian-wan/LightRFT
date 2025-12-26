@@ -20,7 +20,7 @@ and any other factors you deem relevant. For each evaluation dimension,
 provide a score between 1-10 for both images (e.g., Image 1: 8/10, Image 2: 6/10) and provide a concise rationale for the score. 
 Calculate the total score for each image by summing all dimension scores. 
 Use a chain-of-thought process to detail your reasoning steps, and enclose all your detailed reasoning within tags. 
-Then, in the <answer> tag, output exactly one of the following strings: 'Image 1 is better' or 'Image 2 is better' based on the total scores. 
+Then, in the <answer> tag, output exactly one of the following strings: 'Image 1 is better' or 'Image 2 is better' or 'Both are equal' based on the total scores. 
 No additional text is allowed in the <answer> section.
 Example output format:
 <think>
@@ -44,7 +44,7 @@ Evaluate them on various dimensions such as semantic consistency (how closely th
 For each evaluation dimension, provide a score between 1-10 for both videos (e.g., Video 1: 8/10, Video 2: 6/10) and provide a concise rationale for the score. 
 Calculate the total score for each video by summing all dimension scores. 
 Use a chain-of-thought process to detail your reasoning steps, and enclose all your detailed reasoning within <think> and </think> tags. Then, in the <answer> tag, output exactly one of the following strings:
-'Video 1 is better' or 'Video 2 is better' based on the total scores. No additional text is allowed in the <answer> section.
+'Video 1 is better' or 'Video 2 is better' or 'Both are equal' based on the total scores. No additional text is allowed in the <answer> section.
 Example output format:
 <think>
 1. Semantic consistency: Video 1 (9/10) - ...; Video 2 (7/10) - ...
@@ -120,8 +120,8 @@ class OmniRewardBenchT2IEvaluator(BaseEvaluator):
                 self.correct += 1
             elif gt_preference == "B" and predicted_answer == "Image 2 is better":
                 self.correct += 1
-            elif gt_preference == "C":
-                pass
+            elif gt_preference == "C" and predicted_answer == "Both are equal":
+                self.correct += 1
             elif predicted_answer is None:
                 print(f"Could not extract answer from generated text: {gen_text}")
             self.total += 1
@@ -149,8 +149,8 @@ class OmniRewardBenchT2VEvaluator(BaseEvaluator):
                 self.correct += 1
             elif gt_preference == "B" and predicted_answer == "Video 2 is better":
                 self.correct += 1
-            elif gt_preference == "C":
-                pass
+            elif gt_preference == "C" and predicted_answer == "Both are equal":
+                self.correct += 1
             elif predicted_answer is None:
                 print(f"Could not extract answer from generated text: {gen_text}")
             self.total += 1
@@ -201,24 +201,13 @@ def test_grm_vllm(
     model_path: str,
     data_path: List[str],
     evaluator: BaseEvaluator,
+    llm: LLM,
     config: dict = None,
     batch_size: int = 32,
     max_new_tokens: int = 1024,
-    save_dir: str = "./test_results_vllm",
-    tensor_parallel_size: int = 1,
-    limit_image_per_prompt: int = 2,
-    limit_video_per_prompt: int = 2,
+    save_dir: str = "./test_results",
 ):
     logger.info(f"Loading model from: {model_path}")
-    
-    # Initialize vLLM
-    llm = LLM(
-        model=model_path,
-        tensor_parallel_size=tensor_parallel_size,
-        trust_remote_code=True,
-        gpu_memory_utilization=0.95,
-        limit_mm_per_prompt={"image": limit_image_per_prompt, "video": limit_video_per_prompt},
-    )
     
     sampling_params = SamplingParams(
         temperature=0.0,  # For deterministic output
@@ -312,33 +301,39 @@ if __name__ == "__main__":
             "evaluator": HPDv3GRMEvaluator(),
             "data_path": ["hpdv3:/path/to/HPDv3/test.json"],
             "task_instruction": TASK_INSTRUCTION_COT_T2I,
-            "limit_image_per_prompt": 2,
-            "limit_video_per_prompt": 0,
         },
         {
             "name": "OmniRewardBench-T2I", 
             "evaluator": OmniRewardBenchT2IEvaluator(), 
             "data_path": ["omnirewardbench-t2i:/path/to/omnireward-bench/t2i/test.parquet"], 
             "task_instruction": TASK_INSTRUCTION_COT_T2I,
-            "limit_image_per_prompt": 2,
-            "limit_video_per_prompt": 0,
         },
         {
             "name": "OmniRewardBench-T2V", 
             "evaluator": OmniRewardBenchT2VEvaluator(), 
             "data_path": ["omnirewardbench-t2v:/path/to/omnireward-bench/t2v/test.parquet"], 
             "task_instruction": TASK_INSTRUCTION_COT_T2V,
-            "limit_image_per_prompt": 0,
-            "limit_video_per_prompt": 2,
+            "video_fps": 2.0
         },
         {
             "name": "ImageGen-CoT-Reward-5K", 
             "evaluator": ImageGenCoTEvaluator(), 
-            "data_path": ["imagegen-cot-reward-5k:/path/to/imagegen-cot-reward-5k/train_data.json" ], 
-            "limit_image_per_prompt": 2,
-            "limit_video_per_prompt": 0,
+            "data_path": ["imagegen-cot-reward-5k:/path/to/ImageGen-CoT-Reward-5K/train_data.json" ], 
         },
     ]
+
+    # Initialize vLLM
+    tensor_parallel_size = 2
+    llm = LLM(
+        model=model_path,
+        tensor_parallel_size=tensor_parallel_size,
+        trust_remote_code=True,
+        gpu_memory_utilization=0.9,
+        limit_mm_per_prompt={
+            "image": 2, 
+            "video": 2
+        },
+    )
 
     for config in benchmark_configs:
         print(f">>> Running {config['name']} Evaluation")
@@ -346,8 +341,8 @@ if __name__ == "__main__":
             model_path, 
             config["data_path"], 
             evaluator=config["evaluator"],
+            llm=llm,
             config=config, 
-            batch_size=128,
+            batch_size=64,
             max_new_tokens=1024,
-            tensor_parallel_size=2,
         )
