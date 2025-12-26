@@ -133,7 +133,7 @@ class HPDv3Handler(BaseDataHandler):
         return messages0, messages1, other
 
 
-class HPDv3GRMHandler(HPDv3Handler):
+class HPDv3PairwiseHandler(HPDv3Handler):
     """
     Data Handler for HPDv3 dataset with Generative Reward Model (GRM) training.
     Inherits from HPDv3Handler but overrides parse_item to suit GRM needs.

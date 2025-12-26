@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from lightrft.models import GenerativeRewardModelVL
 from transformers import AutoProcessor
 
-from lightrft.datasets import GRMDataset, extract_answer
+from lightrft.datasets import GRMDatasetVL, extract_answer
 
 # Example Task Instruction for GRM Evaluation
 TASK_INSTRUCTION = """
@@ -165,7 +165,7 @@ def test_grm(
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
 
     # Load Dataset
-    dataset = GRMDataset(
+    dataset = GRMDatasetVL(
         data_path,
         tokenizer=processor.tokenizer,
         strategy=None,

@@ -8,7 +8,7 @@ import torch.distributed as dist
 
 from lightrft.strategy import get_strategy
 from lightrft.utils import add_arguments, get_tokenizer_processor_vl
-from lightrft.datasets import GRMDataset
+from lightrft.datasets import GRMDatasetVL
 from lightrft.models import GenerativeRewardModelVL
 from lightrft.trainer.grm_trainer_vl import GRMTrainerVL
 
@@ -39,7 +39,7 @@ def train(args):
     assert processor is not None, "processor is None"
 
     # prepare datasets and dataloaders
-    train_dataset = GRMDataset(
+    train_dataset = GRMDatasetVL(
         args.train_data,
         processor=processor,
         tokenizer=tokenizer,
@@ -61,7 +61,7 @@ def train(args):
     )
 
     if args.eval_data:
-        eval_dataset = GRMDataset(
+        eval_dataset = GRMDatasetVL(
             args.eval_data,
             processor=processor,
             tokenizer=tokenizer,

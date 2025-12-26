@@ -1,4 +1,4 @@
-from .grm_dataset import GRMDataset
+from .grm_dataset import GRMDatasetVL, GRMPromptDatasetVL
 from .srm_dataset import RankDatasetVL, RankDatasetAL
 from .omnirewardbench import *
 from .imagegen_cot_reward import *

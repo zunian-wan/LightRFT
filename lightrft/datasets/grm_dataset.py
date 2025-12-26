@@ -5,15 +5,15 @@ from loguru import logger
 from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoProcessor
 
-from .omnirewardbench import OmniRewardBenchT2IGRMHandler
+from .omnirewardbench import OmniRewardBenchT2IPairwiseHandler, OmniRewardBenchT2VPairwiseHandler
 from .imagegen_cot_reward import ImageGenCoTRewardHandler
-from .hpdv3 import HPDv3GRMHandler
+from .hpdv3 import HPDv3PairwiseHandler
 from .utils import zero_pad_sequences, load_multimodal_content, find_subsequence
 
 
-class GRMDataset(Dataset):
+class GRMDatasetVL(Dataset):
     """
-    Dataset for Generative Reward Model (GRM) training.
+    Dataset for Vision-Language (VL) Generative Reward Model (GRM) training and evaluation.
 
     GRMDataset supports multiple data sources through pluggable Data Handlers
     and covers both understanding tasks (image-to-text, video-to-text) and
@@ -84,8 +84,9 @@ class GRMDataset(Dataset):
 
         self.handlers = {
             "imagegen-cot-reward-5k": ImageGenCoTRewardHandler(),
-            "omnirewardbench-t2i": OmniRewardBenchT2IGRMHandler(),
-            "hpdv3": HPDv3GRMHandler(),
+            "omnirewardbench-t2i": OmniRewardBenchT2IPairwiseHandler(),
+            "omnirewardbench-t2v": OmniRewardBenchT2VPairwiseHandler(),
+            "hpdv3": HPDv3PairwiseHandler(),
         }
 
         # Load data from all specified dataset paths
@@ -263,3 +264,86 @@ class GRMDataset(Dataset):
             # Extras
             extras_list
         )
+
+
+class GRMPromptDatasetVL(GRMDatasetVL):
+    """
+    Dataset for Vision-Language (VL) Generative Reward Model (GRM) training and evaluation.
+    
+    GRMPromptDatasetVL returns the input text prompt along with image and video inputs
+    separately, without tokenization. Inherits from GRMDataset to reuse data loading logic.
+
+    :param dataset_paths: List of dataset file paths or directories. The
+        handler is determined by the source keyword. The format is "source:path".
+    :type dataset_paths: List[str]
+    :param processor: Multimodal processor used for tokenization and visual
+        processing.
+    :type processor: transformers.AutoProcessor
+    :param tokenizer: Tokenizer used for text tokenization.
+    :type tokenizer: transformers.AutoTokenizer
+    :param strategy: Optional data loading strategy.
+    :type strategy: Any
+    :param max_length: Maximum sequence length for tokenization/truncation.
+    :type max_length: int
+    :param config: Additional configuration options.
+    :type config: Dict[str, Any]
+    :param is_training: Whether the dataset is used for training or evaluation.
+    :type is_training: bool
+    """
+    def __init__(
+        self,
+        dataset_paths: List[str],
+        processor: AutoProcessor,
+        tokenizer: AutoTokenizer,
+        strategy=None,
+        max_length: int = 4096,
+        config: Dict[str, Any] = None,
+        is_training: bool = True
+    ):
+        super().__init__(
+            dataset_paths=dataset_paths,
+            processor=processor,
+            tokenizer=tokenizer,
+            strategy=strategy,
+            max_length=max_length,
+            config=config,
+            is_training=is_training
+        )
+
+    def __getitem__(self, idx):
+        item = self.data[idx]
+        source = item["source"]
+
+        handler = self.handlers[source]
+
+        # Get paths for all media content
+        media_info = handler.get_media_info(item)
+
+        # Load all media content at once
+        loaded_content = self.media_content_loader(media_info)
+        if loaded_content is None:
+            raise RuntimeError(f"Failed to load media content: {media_info}")
+
+        # Pass the loaded content dict to parse_item
+        messages, other = handler.parse_item(item, loaded_content, self.config)
+
+        # Prepare inputs from message sequences
+        input_text, image_inputs, video_inputs = self._prepare_inputs(messages)
+
+        return input_text, image_inputs, video_inputs, other
+
+    def _prepare_inputs(self, messages):
+        if not self.is_training:
+            # Remove the last assistant response if present (for generation)
+            if messages and messages[-1]['role'] == 'assistant':
+                messages = messages[:-1]
+            
+        input_text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        
+        image_inputs, video_inputs = self.process_vision_info(messages, return_video_kwargs=False)
+
+        return input_text, image_inputs, video_inputs
+
+    def collate_fn(self, batch):
+        input_texts, image_inputs_list, video_inputs_list, extras_list = zip(*batch)
+        return list(input_texts), list(image_inputs_list), list(video_inputs_list), list(extras_list)
