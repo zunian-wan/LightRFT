@@ -92,6 +92,9 @@ class RapidataT2VHandler(BaseDataHandler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=video_gen_prompt)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Get FPS from config
         fps = config["video_fps"]
 
@@ -107,8 +110,8 @@ class RapidataT2VHandler(BaseDataHandler):
                     "type": "video",
                     "video": video1,
                     "fps": fps,
-                    "max_pixels": 720 * 480
-                }  # 480p limit to reduce memory
+                    "max_pixels": max_pixels
+                }
                             ]
             }
         ]
@@ -122,7 +125,7 @@ class RapidataT2VHandler(BaseDataHandler):
                 "type": "video",
                 "video": video2,
                 "fps": fps,
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }]
         }]
 
@@ -215,6 +218,9 @@ class RapidataI2VHandler(RapidataT2VHandler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=prompt_text)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Get FPS from config
         fps = config["video_fps"]
 
@@ -227,12 +233,12 @@ class RapidataI2VHandler(RapidataT2VHandler):
             "content": [{
                 "type": "image",
                 "image": copy.deepcopy(init_image),
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }, {
                 "type": "video",
                 "video": video1,
                 "fps": fps,
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }]
         }]
 
@@ -244,12 +250,12 @@ class RapidataI2VHandler(RapidataT2VHandler):
             "content": [{
                 "type": "image",
                 "image": copy.deepcopy(init_image),
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }, {
                 "type": "video",
                 "video": video2,
                 "fps": fps,
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }]
         }]
 
@@ -298,6 +304,9 @@ class RapidataT2VPairHandler(RapidataT2VHandler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=video_gen_prompt)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Get FPS from config
         fps = config["video_fps"]
 
@@ -311,10 +320,10 @@ class RapidataT2VPairHandler(RapidataT2VHandler):
             "role": "user",
             "content": [
                 {"type": "text", "text": "The following is the first video."},
-                {"type": "video", "video": video1, "fps": fps, "max_pixels": 720 * 480},
+                {"type": "video", "video": video1, "fps": fps, "max_pixels": max_pixels},
                 
                 {"type": "text", "text": "The following is the second video."},
-                {"type": "video", "video": video2, "fps": fps, "max_pixels": 720 * 480},
+                {"type": "video", "video": video2, "fps": fps, "max_pixels": max_pixels},
                 ]
             }
         ]
@@ -367,7 +376,7 @@ class RapidataI2VPairHandler(RapidataI2VHandler):
 
         # Get FPS from config
         fps = config["video_fps"]
-        max_pixels = config.get("max_image_pixels", 720 * 480)
+        max_pixels = config["max_pixels"]
 
         # Build messages
         messages = [

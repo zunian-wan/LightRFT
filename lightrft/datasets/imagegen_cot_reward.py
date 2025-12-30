@@ -67,6 +67,9 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
         system_prompt = conversations[0]['value']
         response = conversations[-1]['value']
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Build messages
         messages = [{
             "role": "system",
@@ -78,7 +81,8 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
                 "text": "**Image 1:**"
             }, {
                 "type": "image",
-                "image": image0
+                "image": image0,
+                "max_pixels": max_pixels
             }]
         }, {
             "role": "user",
@@ -87,7 +91,8 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
                 "text": "**Image 2:**"
             }, {
                 "type": "image",
-                "image": image1
+                "image": image1,
+                "max_pixels": max_pixels
             }]
         }]
 

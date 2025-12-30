@@ -103,7 +103,7 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
                 fps0, fps1 = rejected_fps, preferred_fps
 
         # Get max_pixels from config
-        max_pixels = config.get("max_pixels", 720 * 480)
+        max_pixels = config["max_pixels"]
 
         # Get FPS from config
         fps = config["video_fps"]

@@ -43,6 +43,10 @@ data_files=(
 )
 DATA_PATH=$(printf '%s,' "${data_files[@]}" | sed 's/,$//')
 
+# -- Pre-processing Settings ---
+video_fps=2.0
+max_pixels=151200 # 360*420
+
 # -- System Prompt / Task Instruction ---
 TASK_INSTRUCTION="""
 Given a caption and two videos generated based on this caption, please analyze in detail the two provided videos. 
@@ -169,4 +173,6 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --use_wandb "${WANDB_API_KEY}" \
    --wandb_project "${WANDB_PROJECT}" \
    --wandb_run_name "${WANDB_RUN_NAME}" \
+   --video_fps $video_fps \
+   --max_pixels $max_pixels \
    2>&1 | tee "log/lightrft_grm_rft_${NODE_RANK}_$(date +%Y%m%d_%H%M%S).log"

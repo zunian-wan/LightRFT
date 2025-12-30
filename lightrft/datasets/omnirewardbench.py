@@ -70,6 +70,9 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
         task_instruction = task_instruction_template.format(prompt=gen_prompt)
         criteria = item["criteria"]
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Build messages
         messages0 = [
             {
@@ -82,7 +85,7 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
                 "content": [{
                     "type": "image",
                     "image": image1,
-                    "max_pixels": 1280 * 720
+                    "max_pixels": max_pixels
                 }]
             }
         ]
@@ -98,7 +101,7 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
                 "content": [{
                     "type": "image",
                     "image": image2,
-                    "max_pixels": 1280 * 720
+                    "max_pixels": max_pixels
                 }]
             }
         ]
@@ -158,6 +161,9 @@ class OmniRewardBenchT2VHandler(OmniRewardBenchT2IHandler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=gen_prompt)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Get FPS from config
         fps = config["video_fps"]
 
@@ -174,7 +180,7 @@ class OmniRewardBenchT2VHandler(OmniRewardBenchT2IHandler):
                 "type": "video",
                 "video": video1,
                 "fps": fps,
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }]
         }]
 
@@ -190,7 +196,7 @@ class OmniRewardBenchT2VHandler(OmniRewardBenchT2IHandler):
                 "type": "video",
                 "video": video2,
                 "fps": fps,
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }]
         }]
 
@@ -321,6 +327,9 @@ class OmniRewardBenchT2IGRMHandler(OmniRewardBenchT2IHandler):
         task_instruction = task_instruction_template.format(prompt=gen_prompt)
         criteria = item["criteria"]
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Build messages
         messages = [
             {
@@ -339,7 +348,7 @@ class OmniRewardBenchT2IGRMHandler(OmniRewardBenchT2IHandler):
                 }, {
                     "type": "image",
                     "image": image1,
-                    "max_pixels": 1280 * 720
+                    "max_pixels": max_pixels
                 }]
             },
             {
@@ -350,7 +359,7 @@ class OmniRewardBenchT2IGRMHandler(OmniRewardBenchT2IHandler):
                 }, {
                     "type": "image",
                     "image": image2,
-                    "max_pixels": 1280 * 720
+                    "max_pixels": max_pixels
                 }]
             },
         ]

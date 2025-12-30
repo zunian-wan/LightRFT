@@ -83,6 +83,9 @@ class HPDv3Handler(BaseDataHandler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=prompt_text)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Random pick from "A" or "B" to avoid positional bias
         preference = random.choice(["A", "B"])
         if preference == "A":  # "A" means image0 is preferred
@@ -101,7 +104,7 @@ class HPDv3Handler(BaseDataHandler):
                 "content": [{
                     "type": "image",
                     "image": image0,
-                    "max_pixels": 720 * 480
+                    "max_pixels": max_pixels
                 }  # to save memory
                             ]
             }
@@ -115,7 +118,7 @@ class HPDv3Handler(BaseDataHandler):
             "content": [{
                 "type": "image",
                 "image": image1,
-                "max_pixels": 720 * 480
+                "max_pixels": max_pixels
             }]
         }]
 
@@ -159,6 +162,9 @@ class HPDv3GRMHandler(HPDv3Handler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=prompt_text)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Random pick from "A" or "B" to avoid positional bias
         preference = random.choice(["A", "B"])
         if preference == "A":  # "A" means image0 is preferred
@@ -182,7 +188,7 @@ class HPDv3GRMHandler(HPDv3Handler):
                     {
                         "type": "image",
                         "image": image0,
-                        "max_pixels": 720 * 480
+                        "max_pixels": max_pixels
                     }  # to save memory
                 ]
             },
@@ -194,7 +200,7 @@ class HPDv3GRMHandler(HPDv3Handler):
                 }, {
                     "type": "image",
                     "image": image1,
-                    "max_pixels": 720 * 480
+                    "max_pixels": max_pixels
                 }]
             }
         ]
@@ -247,6 +253,9 @@ class HPDv3PairHandler(HPDv3Handler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=prompt_text)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Random pick from "A" or "B" to avoid positional bias
         preference = random.choice(["A", "B"])
         if preference == "A":   # "A" means image0 is preferred
@@ -260,12 +269,12 @@ class HPDv3PairHandler(HPDv3Handler):
 
             {"role": "user", "content": [
                 {"type": "text", "text": "The following is the first image."},
-                {"type": "image", "image": image0, "max_pixels": 720 * 480} # to save memory
+                {"type": "image", "image": image0, "max_pixels": max_pixels} # to save memory
             ]},
             
             {"role": "user", "content": [
                 {"type": "text", "text": "The following is the second image."},
-                {"type": "image", "image": image1, "max_pixels": 720 * 480}
+                {"type": "image", "image": image1, "max_pixels": max_pixels}
             ]}
         ]
 

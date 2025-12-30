@@ -550,7 +550,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--prompt_split", type=str, default="train")
     parser.add_argument("--fps", type=float, default=2.0, help="Frames per second for sampling video data.")
-    parser.add_argument("--max_pixels", type=int, default=480*360, help="Maximum pixels for each image frame.")
+    parser.add_argument("--max_pixels", type=int, default=360*28*28, help="Maximum pixels for each image frame.")
 
     # Evaluation dataset
     parser.add_argument("--eval_data", type=str, default=None, help="HF evaluation dataset name or path (default: use prompt_data)")

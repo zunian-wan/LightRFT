@@ -171,6 +171,9 @@ class ImageRewardDBHandler(BaseDataHandler):
         task_instruction_template = config["task_instruction"]
         task_instruction = task_instruction_template.format(prompt=prompt_text)
 
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
         # Random pick from "A" or "B" to avoid positional bias
         preference = random.choice(["A", "B"])
         if preference == "A":  # "A" means image0 is preferred
@@ -189,7 +192,7 @@ class ImageRewardDBHandler(BaseDataHandler):
                 "content": [{
                     "type": "image",
                     "image": image0,
-                    "max_pixels": 1280 * 720
+                    "max_pixels": max_pixels
                 }  # to save memory
                             ]
             }
@@ -203,7 +206,7 @@ class ImageRewardDBHandler(BaseDataHandler):
             "content": [{
                 "type": "image",
                 "image": image1,
-                "max_pixels": 1280 * 720
+                "max_pixels": max_pixels
             }]
         }]
 
