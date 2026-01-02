@@ -29,7 +29,7 @@ docs-live:
 black:
 	black --line-length=120 "${SRC_DIR}"
 yapf:
-	yapf --recursive --in-place "${SRC_DIR}"
+	yapf --in-place --recursive -p --verbose --style .style.yapf ${SRC_DIR}
 flake8:
 	flake8 --ignore=F401,F403,F405,W504,W503,E203 --max-line-length=120 "${SRC_DIR}"
 pylint:
@@ -37,4 +37,4 @@ pylint:
 
 #format: black
 format: yapf
-fcheck: flake8 pylint
+fcheck: flake8

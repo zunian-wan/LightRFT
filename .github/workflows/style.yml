@@ -39,3 +39,7 @@ jobs:
         else
           echo "✅ Code formatting check passed!"
         fi
+        
+    - name: Check code style with flake8
+      run: |
+        make fcheck
