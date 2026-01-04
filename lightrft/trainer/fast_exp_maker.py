@@ -1296,7 +1296,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
                 # Use FIRE sampling (Flaming-hot Initiation with Regular Execution)
                 all_outputs = fire_sampling(
                     all_prompt_token_ids=all_prompt_token_ids,
-                    generate_fn=generate_fn,
+                    generate_fn=generate_fn,  # noqa: TODO
                     engine_type=config.engine_type,
                     first_token_temperature=generate_kwargs.get("first_token_temperature", 10.0),
                     temperature=generate_kwargs.get("temperature", 1.0),

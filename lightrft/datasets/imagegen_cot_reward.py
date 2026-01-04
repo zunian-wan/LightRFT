@@ -1,5 +1,4 @@
 import os
-import copy
 import json
 from typing import List, Dict, Any, Tuple
 from loguru import logger
@@ -10,7 +9,7 @@ from .utils import BaseDataHandler
 class ImageGenCoTRewardHandler(BaseDataHandler):
     """
     Data handler for ImageGen-CoT-Reward-5K dataset. For Text-to-Image generation task.
-    
+
     Paper: https://arxiv.org/pdf/2505.03318
     Dataset Repo: https://huggingface.co/datasets/CodeGoat24/ImageGen-CoT-Reward-5K
     """
@@ -37,7 +36,7 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
         """
         data_root = item['data_root']
         if not data_root:
-            raise ValueError(f"Missing 'data_root' in item. Cannot resolve image paths.")
+            raise ValueError("Missing 'data_root' in item. Cannot resolve image paths.")
         images = item['images']
         image0_full_path = os.path.join(data_root, images[0])
         image1_full_path = os.path.join(data_root, images[1])
@@ -62,7 +61,7 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
         image1 = media_content['image1']
 
         if not all([image0, image1]):
-            raise ValueError(f"Missing visual content for 'image0' or 'image1'.")
+            raise ValueError("Missing visual content for 'image0' or 'image1'.")
 
         # Get conversations from data item
         conversations = item["conversations"]
@@ -96,12 +95,13 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
                 "image": image1,
                 "max_pixels": max_pixels
             }]
+        }, {
+            "role": "assistant",
+            "content": [{
+                "type": "text",
+                "text": response
+            }]
         }]
-
-        # During evaluation, we do not include the response part in the messages
-        is_training = config.get("is_training", True)
-        if is_training:
-            messages.append({"role": "assistant", "content": response})
 
         other = {
             "source": item['source'],
