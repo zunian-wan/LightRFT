@@ -422,7 +422,6 @@ class SRMTrainerVL:
                     input1_img_pixels, input1_img_grid_thws, input0_video_pixels, input0_video_grid_thws,
                     input1_video_pixels, input1_video_grid_thws, extras
                 ) = data
-                device = torch.cuda.current_device()
 
                 input0_ids = input0_ids.squeeze(1).to(device)
                 input0_mask = input0_mask.squeeze(1).to(device)

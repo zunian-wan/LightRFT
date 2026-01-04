@@ -25,7 +25,6 @@ from .utils import (
 from .cli_args import add_arguments
 from .timer import Timer
 
-
 __all__ = [
     # logging and trajectory
     "init_logger",
