@@ -332,14 +332,17 @@ class GRMTrainerVL:
                     predicted_answers.append(extract_answer(response))
 
                 # Construct records locally and gather them across all ranks
-                local_records = [{
-                    "info": extra,
-                    "generated_text": gen_text,
-                    "response_text": resp_text,
-                    "predicted_answer": pred_ans,
-                    "gt_answer": extract_answer(extra["response"])
-                } for gen_text, resp_text, pred_ans, extra in
-                                 zip(generated_text, responses_text, predicted_answers, extras)]
+                local_records = []
+                for gen_text, resp_text, pred_ans, extra in zip(
+                    generated_text, responses_text, predicted_answers, extras
+                ):
+                    local_records.append({
+                        "info": extra,
+                        "generated_text": gen_text,
+                        "response_text": resp_text,
+                        "predicted_answer": pred_ans,
+                        "gt_answer": extract_answer(extra["response"])
+                    })
 
                 gathered_records = all_gather_and_flatten(local_records)
                 if self.strategy.is_rank_0():
@@ -380,7 +383,12 @@ class GRMTrainerVL:
             if self._tensorboard is not None:
                 self._tensorboard.add_scalar("eval/accuracy", accuracy, steps)
                 for i, r in enumerate(all_eval_records[:5]):
-                    text = f"Info: {r['info']}\n\nGenerated: {r['generated_text']}\n\nResponse: {r['response_text']}\n\nPredicted Answer: {r['predicted_answer']}\n\nGT Answer: {r['gt_answer']}"
+                    text = (
+                        f"Info: {r['info']}\n\nGenerated: {r['generated_text']}\n\n"
+                        f"Response: {r['response_text']}\n\n"
+                        f"Predicted Answer: {r['predicted_answer']}\n\n"
+                        f"GT Answer: {r['gt_answer']}"
+                    )
                     self._tensorboard.add_text(f"eval/sample_{i}", text, steps)
 
             self.strategy.print(f"Evaluation generations written to {output_file}")

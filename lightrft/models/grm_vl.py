@@ -207,7 +207,8 @@ class GenerativeRewardModelVL(nn.Module):
         :type temperature: float
         :param top_k: The number of highest probability vocabulary tokens to keep for top-k-filtering
         :type top_k: Optional[int]
-        :param top_p: If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to top_p or higher are kept for generation
+        :param top_p: If set to float < 1, only the smallest set of most probable tokens with probabilities
+            that add up to top_p or higher are kept for generation
         :type top_p: Optional[float]
         :param num_beams: Number of beams for beam search
         :type num_beams: int
