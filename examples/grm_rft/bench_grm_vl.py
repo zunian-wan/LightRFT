@@ -69,6 +69,7 @@ class BaseEvaluator(ABC):
     def __init__(self):
         self.correct = 0
         self.total = 0
+        self.parse_failures = 0
         self.results = []
 
     @abstractmethod
@@ -83,6 +84,9 @@ class BaseEvaluator(ABC):
     def get_accuracy(self) -> float:
         return self.correct / self.total if self.total > 0 else 0.0
 
+    def get_parse_failure_rate(self) -> float:
+        return self.parse_failures / self.total if self.total > 0 else 0.0
+
     def get_results(self) -> List[Dict]:
         return self.results
 
@@ -96,6 +100,7 @@ class ImageGenCoTEvaluator(BaseEvaluator):
             if gt_answer == predicted_answer:
                 self.correct += 1
             elif predicted_answer is None:
+                self.parse_failures += 1
                 print(f"Could not extract answer from generated text: {gen_text}")
             self.total += 1
                         
@@ -109,49 +114,30 @@ class ImageGenCoTEvaluator(BaseEvaluator):
             })
         
 
-class OmniRewardBenchT2IEvaluator(BaseEvaluator):
+class OmniRewardBenchEvaluator(BaseEvaluator):
+    """Generic evaluator for OmniRewardBench, supporting both Image and Video."""
+    def __init__(self, media_type: str):
+        super().__init__()
+        self.media_type = media_type  # "Image" or "Video"
+
     def evaluate_batch(self, gen_texts: List[str], extras: List[Dict]) -> None:
         for i, (gen_text, other) in enumerate(zip(gen_texts, extras)):
             predicted_answer = extract_answer(gen_text)
             gt_preference = other['preference'] # A, B, or C
             
-            # Mapping logic: A -> Image 1, B -> Image 2
-            if gt_preference == "A" and predicted_answer == "Image 1 is better":
+            better_1 = f"{self.media_type} 1 is better"
+            better_2 = f"{self.media_type} 2 is better"
+            equal = "Both are equal"
+
+            # Mapping logic: A -> 1, B -> 2, C -> Equal
+            if gt_preference == "A" and predicted_answer == better_1:
                 self.correct += 1
-            elif gt_preference == "B" and predicted_answer == "Image 2 is better":
+            elif gt_preference == "B" and predicted_answer == better_2:
                 self.correct += 1
-            elif gt_preference == "C" and predicted_answer == "Both are equal":
+            elif gt_preference == "C" and predicted_answer == equal:
                 self.correct += 1
             elif predicted_answer is None:
-                print(f"Could not extract answer from generated text: {gen_text}")
-            self.total += 1
-
-            print(f"Sample {i} | Pred: {predicted_answer} | GT: {gt_preference}")
-
-            self.results.append({
-                "id": other["id"],
-                "prompt": other['prompt'],
-                "criteria": other['criteria'],
-                "ground_truth": gt_preference,
-                "predicted_answer": predicted_answer,
-                "generated_text": gen_text,
-            })
-
-
-class OmniRewardBenchT2VEvaluator(BaseEvaluator):
-    def evaluate_batch(self, gen_texts: List[str], extras: List[Dict]) -> None:
-        for i, (gen_text, other) in enumerate(zip(gen_texts, extras)):
-            predicted_answer = extract_answer(gen_text)
-            gt_preference = other['preference'] # A, B, or C
-            
-            # Mapping logic: A -> Image 1, B -> Image 2
-            if gt_preference == "A" and predicted_answer == "Video 1 is better":
-                self.correct += 1
-            elif gt_preference == "B" and predicted_answer == "Video 2 is better":
-                self.correct += 1
-            elif gt_preference == "C" and predicted_answer == "Both are equal":
-                self.correct += 1
-            elif predicted_answer is None:
+                self.parse_failures += 1
                 print(f"Could not extract answer from generated text: {gen_text}")
             self.total += 1
 
@@ -180,6 +166,7 @@ class HPDv3GRMEvaluator(BaseEvaluator):
             elif gt_preference == "B" and predicted_answer == "Image 2 is better":
                 self.correct += 1
             elif predicted_answer is None:
+                self.parse_failures += 1
                 print(f"Could not extract answer from generated text: {gen_text}")
             self.total += 1
 
@@ -196,24 +183,19 @@ class HPDv3GRMEvaluator(BaseEvaluator):
                 "rejected_path": other['rejected_path'],
             })
 
-
+@torch.no_grad()
 def test_grm_vllm(
     model_path: str,
     data_path: List[str],
     evaluator: BaseEvaluator,
     llm: LLM,
+    sampling_params: SamplingParams,
     config: dict = None,
     batch_size: int = 32,
-    max_new_tokens: int = 1024,
     save_dir: str = "./test_results",
 ):
     logger.info(f"Loading model from: {model_path}")
     
-    sampling_params = SamplingParams(
-        temperature=0.0,  # For deterministic output
-        max_tokens=max_new_tokens,
-    )
-
     logger.info(f"Model loaded successfully from {model_path}.")
 
     # Load Processor and Tokenizer for Dataset
@@ -242,7 +224,7 @@ def test_grm_vllm(
     logger.info(f"Starting inference with evaluator: {evaluator.__class__.__name__}")
     
     for batch_idx, batch in enumerate(tqdm(data_loader)):
-        input_texts, image_inputs_list, video_inputs_list, extras = batch
+        input_texts, image_inputs_list, video_inputs_list, extras, _ = batch
         
         inputs = []
         for i in range(len(input_texts)):
@@ -272,7 +254,9 @@ def test_grm_vllm(
 
     # Summary and Save
     accuracy = evaluator.get_accuracy()
+    failure_rate = evaluator.get_parse_failure_rate()
     print(f"Evaluation completed. Accuracy: {accuracy*100:.2f}% ({evaluator.correct}/{evaluator.total})")
+    print(f"Parse Failure Rate: {failure_rate*100:.2f}% ({evaluator.parse_failures}/{evaluator.total})")
 
     if save_dir:
         new_save_dir = os.path.join(save_dir, os.path.basename(model_path), config["name"])
@@ -282,8 +266,9 @@ def test_grm_vllm(
             f.write(f"Dataset paths: {data_path}\n")
             f.write(f"Model path: {model_path}\n")
             f.write(f"Evaluator: {evaluator.__class__.__name__}\n")
-            f.write(f"Max new tokens: {max_new_tokens}\n")
+            f.write(f"Max new tokens: {sampling_params.max_tokens}\n")
             f.write(f"Accuracy: {accuracy*100:.2f}% ({evaluator.correct}/{evaluator.total})\n")
+            f.write(f"Parse Failure Rate: {failure_rate*100:.2f}% ({evaluator.parse_failures}/{evaluator.total})\n")
 
         results = evaluator.get_results()
         with open(os.path.join(new_save_dir, "all_results.jsonl"), "w") as f:
@@ -305,15 +290,15 @@ if __name__ == "__main__":
         },
         {
             "name": "OmniRewardBench-T2I", 
-            "evaluator": OmniRewardBenchT2IEvaluator(), 
-            "data_path": ["omnirewardbench-t2i:/path/to/omnireward-bench/t2i/test.parquet"], 
+            "evaluator": OmniRewardBenchEvaluator(media_type="Image"), 
+            "data_path": ["omnirewardbench-t2i:/path/to/OmniRewardBench/text_to_image/test.parquet"], 
             "task_instruction": TASK_INSTRUCTION_COT_T2I,
             "max_pixels": 768*480,
         },
         {
             "name": "OmniRewardBench-T2V", 
-            "evaluator": OmniRewardBenchT2VEvaluator(), 
-            "data_path": ["omnirewardbench-t2v:/path/to/omnireward-bench/t2v/test.parquet"], 
+            "evaluator": OmniRewardBenchEvaluator(media_type="Video"), 
+            "data_path": ["omnirewardbench-t2v:/path/to/OmniRewardBench/text_to_video/test.parquet"], 
             "task_instruction": TASK_INSTRUCTION_COT_T2V,
             "video_fps": 2.0,
             "max_pixels": 768*480,
@@ -339,14 +324,22 @@ if __name__ == "__main__":
         },
     )
 
+    # Define sampling parameters
+    sampling_params = SamplingParams(
+        temperature=0.0,  # For deterministic output
+        do_sample=False,
+        max_tokens=512,
+    )
+
     for config in benchmark_configs:
         print(f">>> Running {config['name']} Evaluation")
+
         test_grm_vllm(
             model_path, 
             config["data_path"], 
             evaluator=config["evaluator"],
             llm=llm,
+            sampling_params=sampling_params,
             config=config, 
-            batch_size=64,
-            max_new_tokens=1024,
+            batch_size=128,
         )

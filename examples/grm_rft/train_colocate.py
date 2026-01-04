@@ -1,12 +1,13 @@
 """
-GRPO Training with Co-located Reward Models
+GRPO Training with Verifiable Rewards (RLVR) for Vision-Language Tasks
+Supported Modalities: Text, Image, and Video.
 
-This script implements Group Relative Policy Optimization (GRPO) training
-with co-located reward models for reinforcement learning from human feedback (RLHF).
+This script implements Group Relative Policy Optimization (GRPO) for Vision-Language Models (VLMs). 
+It integrates rule-based reward functions to enable Reinforcement Learning from Verifiable Rewards (RLVR), 
 
 Key Features:
     - Supports both text-only and vision-language models
-    - Multiple reward models (Value, Safety, Knowledge, Normal, General)
+    - Rule-based verifiable rewards (Format checking and Accuracy verification)
     - Flexible strategy: DeepSpeed ZeRO or FSDP
     - Meta device initialization for memory optimization
     - EMA (Exponential Moving Average) model support
@@ -15,17 +16,16 @@ Key Features:
 Main Components:
     - Actor: Policy model being trained
     - Critic: Value model for advantage estimation (optional for GRPO)
-    - Reward Models: Multiple models for evaluating different aspects
     - Initial Model: Reference model for KL divergence
 
 Training Pipeline:
-    1. Load and initialize models (actor, critic, reward models)
+    1. Load and initialize models (actor, initial model, critic)
     2. Setup data loaders (prompts + optional pretrain data)
     3. Configure optimizers and schedulers
     4. Run PPO/GRPO training loop via SPMDPPOTrainerVL
 
 Usage:
-    python train_grpo_rm_colocate.py --pretrain <model_path> --reward_pretrain <rm_config> ...
+    python train_colocate.py --pretrain <model_path> ...
 
 For more details on arguments, see the argument parser at the bottom of this file.
 """
@@ -36,7 +36,6 @@ import torch
 import argparse
 import itertools
 from datetime import datetime
-from typing import Callable, Dict, List, Tuple, Union
 
 from lightrft.strategy import get_strategy
 from lightrft.datasets import RFTDatasetVL, SFTDatasetVL
@@ -52,17 +51,17 @@ from reward_models_utils import load_reward_models, reward_fn, RECIPE
 
 def train(args):
     """
-    Main training function for GRPO with co-located reward models.
+    Main training function for GRPO with Rule-based function.
+    Support vision-language models for image and video inputs.
 
     Training workflow:
         1. Initialize strategy (DeepSpeed or FSDP)
         2. Initialize models with meta_init option for memory efficiency
-        3. Load reward models (multiple types supported)
-        4. Setup dataloaders for prompts and optional pretrain data
-        5. Configure optimizers and schedulers
-        6. Setup inference engine (vLLM or SGLang)
-        7. Run training loop via SPMDPPOTrainerVL
-        8. Save final model
+        3. Setup dataloaders for prompts (supporting images and videos) and optional pretrain data
+        4. Configure optimizers and schedulers
+        5. Setup inference engine (vLLM or SGLang)
+        6. Run training loop via SPMDPPOTrainerVL
+        7. Save final model
 
     Args:
         args: Parsed command-line arguments containing all training configuration
@@ -71,7 +70,6 @@ def train(args):
         - meta_init: Initialize models on meta device to save CPU RAM
         - freeze_prefix: Freeze vision encoder during training
         - fsdp: Use FSDP instead of DeepSpeed
-        - rm_use_engine: Use SGLang engine for reward models
     """
     # configure strategy
     strategy = get_strategy(args)
@@ -238,59 +236,14 @@ def train(args):
     )
     strategy.print(f"Loaded {len(prompts_dataset)} samples for prompts.")
 
+    # TODO: Implement evaluation dataset and dataloader
     # Prepare evaluation dataset
     eval_dataloader = None
-
-    # Prepare pretrain dataset
-    pretrain_dataloader = None
-    if args.pretrain_data:
-        strategy.print(f"Loading pretrain dataset from: {args.pretrain_data} with split: {args.pretrain_split}")
-        pretrain_data = blending_datasets(
-            args.pretrain_data, args.pretrain_data_probs, strategy, args.seed,
-            return_eval=False, train_split=args.pretrain_split,
-        )
-        if len(pretrain_data) == 0:
-            strategy.print(f"Warning: Pretrain dataset at {args.pretrain_data} is empty. PTX loss will not be applied.")
-            pretrain_dataloader = None
-        else:
-            pretrain_max_len = args.max_len if args.max_len else args.prompt_max_len + args.generate_max_len
-            # Calculate total samples needed for pretraining
-            total_pretrain_samples = args.max_epochs * len(prompts_dataset) * args.n_samples_per_prompt
-            pretrain_data_subset = pretrain_data.select(range(min(len(pretrain_data), total_pretrain_samples)))
-            
-            pretrain_dataset = SFTDatasetVL(
-                pretrain_data_subset, tokenizer, pretrain_max_len, strategy, pretrain_mode=True,
-            )
-            strategy.print(f"Loaded {len(pretrain_dataset)} samples for pretraining.")
-            pretrain_dataloader = itertools.cycle(
-                iter(
-                    strategy.setup_dataloader(
-                        pretrain_dataset, args.micro_train_batch_size, True, True, pretrain_dataset.collate_fn,
-                    )
-                )
-            )
-    else:
-        pretrain_dataloader = None
 
     # Prepare prompts dataloader
     prompts_dataloader = strategy.setup_dataloader(
         prompts_dataset, args.rollout_batch_size // strategy.world_size, True, True, collate_fn=prompts_dataset.collate_fn
     )
-
-    if args.pretrain_data:
-        pretrain_dataloader = itertools.cycle(
-            iter(
-                strategy.setup_dataloader(
-                    pretrain_dataset,
-                    args.micro_train_batch_size,
-                    True,
-                    True,
-                    pretrain_dataset.collate_fn,
-                )
-            )
-        )
-    else:
-        pretrain_dataloader = None
 
     # for scheduler
     num_update_steps_per_episodes = (
@@ -395,7 +348,14 @@ def train(args):
     )
 
     # None is eval_dataloader placehoder
-    trainer.fit(args, prompts_dataloader=prompts_dataloader, pretrain_dataloader=pretrain_dataloader, eval_dataloader=None, consumed_samples=0, num_update_steps_per_episodes=num_update_steps_per_episodes)
+    trainer.fit(
+        args, 
+        prompts_dataloader=prompts_dataloader, 
+        pretrain_dataloader=None, 
+        eval_dataloader=None, 
+        consumed_samples=0, 
+        num_update_steps_per_episodes=num_update_steps_per_episodes
+    )
 
     # save model checkpoint after fitting on only rank0
     strategy.save_model(
@@ -557,23 +517,8 @@ if __name__ == "__main__":
     parser.add_argument("--eval_data", type=str, default=None, help="HF evaluation dataset name or path (default: use prompt_data)")
     parser.add_argument("--eval_split", type=str, default="test", help="Evaluation data split (default: test)")
 
-    parser.add_argument("--pretrain_data", type=str, default=None, help="HF dataset name or path")
-    parser.add_argument(
-        "--pretrain_data_probs",
-        type=str,
-        default="1.0",
-        help="sampling probs for datasets",
-    )
     parser.add_argument("--pretrain_split", type=str, default="train")
-    parser.add_argument("--input_key", type=str, default="input", help="JSON dataset key")
-    parser.add_argument("--images_key", type=str, default="image", help="JSON dataser key for images")
-    parser.add_argument("--reference_key", type=str, default="reference", help="JSON dataset key for reference answers")
-    parser.add_argument("--label_key", type=str, default="label", help="JSON dataset key")
     parser.add_argument("--input_template", type=str, default=None)
-    parser.add_argument(
-        "--apply_chat_template", action="store_true", default=False, help="Use HF tokenizer chat template"
-    )
-
     parser.add_argument("--system_prompt", type=str, default=None, help="HF System Prompt")
 
     # wandb parameters

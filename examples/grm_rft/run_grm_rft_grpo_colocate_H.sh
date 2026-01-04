@@ -109,7 +109,7 @@ LOG_BASE=log
 
 # --- Create directories for logs and checkpoints ---
 mkdir -p $LOG_BASE
-mkdir -p results/$SAVE_MODEL_NAME
+mkdir -p results/${SAVE_MODEL_NAME}/${SAVE_MODEL_NAME}
 
 # --- System and Environment Optimizations ---
 export IGNORE_EOS=0
@@ -134,8 +134,8 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --rm_use_engine \
    --mixed_mm_data \
    --reward_pretrain "{}" \
-   --save_path results/$SAVE_MODEL_NAME \
-   --ckpt_path results/$SAVE_MODEL_NAME \
+   --save_path results/${SAVE_MODEL_NAME}/${SAVE_MODEL_NAME} \
+   --ckpt_path results/${SAVE_MODEL_NAME}/${SAVE_MODEL_NAME} \
    --micro_train_batch_size 8 \
    --train_batch_size ${TBS} \
    --micro_rollout_batch_size 8 \
@@ -153,9 +153,6 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --init_kl_coef $KL \
    --kl_estimator k3 \
    --prompt_data $DATA_PATH \
-   --input_key prompt \
-   --images_key images \
-   --reference_key chosen \
    --apply_chat_template \
    --flash_attn \
    --gradient_checkpointing \
@@ -173,6 +170,6 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --use_wandb "${WANDB_API_KEY}" \
    --wandb_project "${WANDB_PROJECT}" \
    --wandb_run_name "${WANDB_RUN_NAME}" \
-   --video_fps $video_fps \
+   --fps $video_fps \
    --max_pixels $max_pixels \
    2>&1 | tee "log/lightrft_grm_rft_${NODE_RANK}_$(date +%Y%m%d_%H%M%S).log"
