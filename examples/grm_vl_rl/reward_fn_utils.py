@@ -20,7 +20,7 @@ Note:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
@@ -33,51 +33,6 @@ RECIPE: Dict[str, List[Tuple[str, Optional[str], float]]] = {
     # Format: (reward_type, model_key, weight)
     "general":    [("format_rule", None, 1.0), ("accuracy_rule", None, 1.0)],
 }
-
-
-# ============================================================================
-# Model Loading Interface (Simplified)
-# ============================================================================
-
-# Type hint for compatibility with train_colocate.py
-RawRewardInput = Union[str, Dict[str, str], List[Dict[str, str]], None]
-
-
-def load_reward_models(
-    raw_reward_pretrain: RawRewardInput,
-    strategy: Any,
-    use_engine: bool = False,
-) -> Tuple[List[Any], List[Any], Dict[str, int]]:
-    """
-    Load reward models (simplified for rule-based rewards).
-
-    This function returns empty lists to maintain interface compatibility
-    when using pure rule-based rewards.
-
-    :param raw_reward_pretrain: Raw configuration (ignored for rule-based rewards)
-    :type raw_reward_pretrain: RawRewardInput
-    :param strategy: Training strategy instance
-    :type strategy: Any
-    :param use_engine: Whether to use engine (ignored for rule-based rewards)
-    :type use_engine: bool
-    :return: Tuple of (reward_models, reward_tokenizers, label_map) - all empty for rule-based rewards
-    :rtype: Tuple[List[Any], List[Any], Dict[str, int]]
-
-    Note:
-        This simplified version does not load any neural reward models.
-        Rewards are computed purely based on format and accuracy rules.
-    """
-    strategy.print("=" * 80)
-    strategy.print("[INFO] Using pure rule-based rewards")
-    strategy.print("[INFO] No neural reward models loaded")
-    strategy.print("[INFO] Rewards computed based on format and accuracy")
-    strategy.print("=" * 80)
-
-    # Return empty lists to maintain interface compatibility
-    # - reward_models: [] (no models)
-    # - reward_tokenizers: [] (no tokenizers)
-    # - label_map: {} (empty mapping)
-    return [], [], {}
 
 
 # ============================================================================
@@ -113,6 +68,10 @@ def format_reward_fn(sol: str) -> float:
     else:
         return 0.0
 
+
+# ============================================================================
+# Accuracy Reward Functions
+# ============================================================================
 
 def accuracy_reward_fn(sol: str, extra: Any) -> float:
     """
@@ -158,37 +117,54 @@ def accuracy_reward_fn(sol: str, extra: Any) -> float:
 
 
 # ============================================================================
-# Reward Mixing and Computation
+# Reward Computation
 # ============================================================================
 
-def mix_rewards(
+def reward_fn(
+    model_reward_list: List[torch.Tensor],
     labels: Sequence[str],
-    model_scores: torch.Tensor,
-    label_map: Dict[str, int],
-    solution_strs: Sequence[str],
+    queries: Sequence[str],
     refs: Sequence[str],
+    **kwargs,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
     """
-    Mix rewards from multiple sources according to recipe configuration.
+    External unified interface for computing final rewards.
 
-    This function combines rewards based on the RECIPE configuration.
-    Currently only considers format rewards.
+    This is the main entry point called by the trainer. It:
+        1. Handles empty model_reward_list (for pure rule-based rewards)
+        2. Computes rewards based on RECIPE
+        3. Returns final reward tensor with detailed metrics
 
-    :param labels: List of data labels (length B)
+    :param model_reward_list: List of reward tensors from each model, each shape (B,) - empty for rule-based
+    :type model_reward_list: List[torch.Tensor]
+    :param labels: List of data labels indicating reward type (length B)
     :type labels: Sequence[str]
-    :param model_scores: Tensor of model scores, shape (n_model, B)
-    :type model_scores: torch.Tensor
-    :param label_map: Mapping from reward type to model index
-    :type label_map: Dict[str, int]
-    :param solution_strs: List of solution strings (length B)
-    :type solution_strs: Sequence[str]
+    :param queries: List of query/solution strings (length B)
+    :type queries: Sequence[str]
     :param refs: List of reference answers (length B)
     :type refs: Sequence[str]
-    :return: Tuple of (final_reward, metrics_dict)
+    :param kwargs: Additional keyword arguments for reward functions
+    :type kwargs: Any
+
+    :return: Tuple of (final_reward, metrics_dict) where final_reward is combined reward tensor
+             of shape (B,) and metrics_dict contains detailed reward metrics
     :rtype: Tuple[torch.Tensor, Dict[str, torch.Tensor]]
+
+    Note:
+        For rule-based rewards, model_reward_list will be empty since no neural models are used.
+        All rewards are computed via rule-based functions (currently format-only).
     """
+    # Create placeholder model_scores tensor
+    # For rule-based rewards, this will be empty (shape: [0, B])
+    if model_reward_list:
+        model_scores = torch.stack(model_reward_list)  # (n_model, B)
+    else:
+        # No neural reward models - create empty placeholder
+        B = len(labels)
+        model_scores = torch.zeros(0, B, dtype=torch.float32, device="cuda")
+
     if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
-        print(f"[mix_rewards] labels: {labels}")
+        print(f"[reward_fn] labels: {labels}")
 
     device = model_scores.device if model_scores.numel() > 0 else torch.device('cuda')
     B = len(labels)
@@ -203,7 +179,7 @@ def mix_rewards(
 
     # ---------- Main loop ----------
     for i, lab in enumerate(labels):
-        sol = solution_strs[i]
+        sol = queries[i]
         ref = refs[i] if refs is not None else None
 
         # Extract only the assistant's response part
@@ -242,49 +218,3 @@ def mix_rewards(
         final_reward[i] = r
 
     return final_reward, metrics_dict
-
-
-def reward_fn(
-    model_reward_list: List[torch.Tensor],
-    labels: Sequence[str],
-    queries: Sequence[str],
-    refs: Sequence[str],
-    label_map: Dict[str, int],
-) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-    """
-    External unified interface for computing final rewards.
-
-    This is the main entry point called by the trainer. It:
-        1. Handles empty model_reward_list (for pure rule-based rewards)
-        2. Calls mix_rewards to compute rewards based on RECIPE
-        3. Returns final reward tensor with detailed metrics
-
-    :param model_reward_list: List of reward tensors from each model, each shape (B,) - empty for rule-based
-    :type model_reward_list: List[torch.Tensor]
-    :param labels: List of data labels indicating reward type (length B)
-    :type labels: Sequence[str]
-    :param queries: List of query/solution strings (length B)
-    :type queries: Sequence[str]
-    :param refs: List of reference answers (length B)
-    :type refs: Sequence[str]
-    :param label_map: Mapping from reward type to model index - empty for rule-based
-    :type label_map: Dict[str, int]
-    :return: Tuple of (final_reward, metrics_dict) where final_reward is combined reward tensor
-             of shape (B,) and metrics_dict contains detailed reward metrics
-    :rtype: Tuple[torch.Tensor, Dict[str, torch.Tensor]]
-
-    Note:
-        For rule-based rewards, model_reward_list will be empty since no neural models are used.
-        All rewards are computed via rule-based functions (currently format-only).
-    """
-    # Create placeholder model_scores tensor
-    # For rule-based rewards, this will be empty (shape: [0, B])
-    if model_reward_list:
-        model_scores = torch.stack(model_reward_list)  # (n_model, B)
-    else:
-        # No neural reward models - create empty placeholder
-        B = len(labels)
-        model_scores = torch.zeros(0, B, dtype=torch.float32, device="cuda")
-
-    # Call mix_rewards to compute final rewards
-    return mix_rewards(labels, model_scores, label_map, queries, refs)

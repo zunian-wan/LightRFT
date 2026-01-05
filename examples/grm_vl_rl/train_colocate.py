@@ -46,7 +46,7 @@ from lightrft.utils import add_arguments, ensure_video_input_available, blending
 ensure_video_input_available()
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from reward_models_utils import load_reward_models, reward_fn, RECIPE
+from reward_fn_utils import reward_fn, RECIPE
 
 
 def train(args):
@@ -76,29 +76,6 @@ def train(args):
 
     ds_train_cfg = strategy.get_ds_train_config(is_actor=True) if not args.fsdp else None
     ds_eval_cfg = strategy.get_ds_eval_config(offload=False)  if not args.fsdp else None
-
-    # configure model
-
-    # if args.text_only:
-    #     Actor = ActorLanguage
-    # else:
-    #     Actor = ActorVL
-    
-    # actor = Actor(
-    #     args.pretrain,
-    #     use_flash_attention_2=args.flash_attn,
-    #     bf16=args.bf16,
-    #     load_in_4bit=args.load_in_4bit,
-    #     lora_rank=args.lora_rank,
-    #     lora_alpha=args.lora_alpha,
-    #     target_modules=args.target_modules,
-    #     lora_dropout=args.lora_dropout,
-    #     ds_config=ds_train_cfg,
-    #     packing_samples=args.packing_samples,
-    #     disable_logprobs_flashattn=args.disable_logprobs_flashattn,
-    #     fused_linear_logprob=args.fused_linear_logprob,
-    # )
-
 
     # ==================== Model Initialization ====================
     # Initialize all models within init_model_context for memory efficiency.
@@ -168,15 +145,6 @@ def train(args):
     else:
         critic = None
 
-    # Load reward models (multiple types: value, safety, knowledge, etc.)
-    strategy.report_memory(f"before loaded reward models in main entry")
-    reward_models, reward_tokenizers, label_map = load_reward_models(
-        raw_reward_pretrain=args.reward_pretrain,
-        strategy=strategy,
-        use_engine=args.rm_use_engine,
-    )
-    strategy.report_memory(f"after loaded reward models in main entry")
-
     strategy.print(actor)
     strategy.print(critic)
 
@@ -222,16 +190,22 @@ def train(args):
     # Prepare prompts dataset
     strategy.print(f"Loading prompts dataset from: {args.prompt_data}")
 
-    # Parse system_prompt if it's a YAML file or a string
-    system_prompt = args.system_prompt
-    if system_prompt:
-        if system_prompt.endswith(".yaml") or system_prompt.endswith(".yml"):
+    # Parse system prompt path if provided. We keep a `system_prompt` variable
+    # which contains either the loaded YAML (if path ends with .yaml/.yml) or
+    # the string passed directly.
+    system_prompt = None
+    if getattr(args, "system_prompt_path", None):
+        system_prompt_path = args.system_prompt_path
+        # If it's a YAML file, load it; otherwise treat as literal prompt string
+        if system_prompt_path.endswith(".yaml") or system_prompt_path.endswith(".yml"):
             try:
                 import yaml
-                with open(system_prompt, "r") as f:
+                with open(system_prompt_path, "r") as f:
                     system_prompt = yaml.safe_load(f)
             except Exception as e:
                 strategy.print(f"Error loading system prompt from YAML: {e}")
+        else:
+            system_prompt = system_prompt_path
 
     prompts_dataset = RFTDatasetVL(
         args.prompt_data, 
@@ -278,9 +252,7 @@ def train(args):
         (critic, critic_optim, critic_scheduler),
         reward_models,
         initial_model,
-    ) = strategy.prepare_models_and_optimizers(actor, critic, reward_models, initial_model, args, max_steps)
-
-    strategy.print(reward_models)
+    ) = strategy.prepare_models_and_optimizers(actor, critic, [], initial_model, args, max_steps)
 
     if ema_model:
         ema_model._offload = True
@@ -345,9 +317,7 @@ def train(args):
         eos_token_id=tokenizer.eos_token_id,
         # reward model
         reward_fn=reward_fn,
-        reward_fn_label_map=label_map,
         reward_recipe=RECIPE,
-        reward_tokenizers=reward_tokenizers,
         save_hf_ckpt=args.save_hf_ckpt,
         disable_ds_ckpt=args.disable_ds_ckpt,
         packing_samples=args.packing_samples,
@@ -530,8 +500,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval_split", type=str, default="test", help="Evaluation data split (default: test)")
 
     parser.add_argument("--pretrain_split", type=str, default="train")
-    parser.add_argument("--input_template", type=str, default=None)
-    parser.add_argument("--system_prompt", type=str, default=None, help="HF System Prompt")
+    parser.add_argument("--system_prompt_path", type=str, default=None, help="Path to Prompt YAML or a literal system prompt string")
 
     # wandb parameters
     parser.add_argument("--use_wandb", type=str, default=None)
@@ -546,9 +515,6 @@ if __name__ == "__main__":
 
     # TensorBoard parameters
     parser.add_argument("--use_tensorboard", type=str, default=None, help="TensorBoard logging path")
-
-    # ModelScope parameters
-    parser.add_argument("--use_ms", action="store_true", default=False)
 
     # MultiModal
     parser.add_argument("--limit_mm_image_per_prompt", type=int, default=-1, help="the max image number of each text in multi model for inference backend")
@@ -578,21 +544,5 @@ if __name__ == "__main__":
     else:
         if args.kl_estimator not in ["k1"]:
             print(f"Recommend setting {args.kl_estimator} to 'k1' when not using KL as a loss.")
-
-    if args.input_template and "{}" not in args.input_template:
-        print("[Warning] {} not in args.input_template, set to None")
-        args.input_template = None
-
-    if args.input_template and "\\n" in args.input_template:
-        print(
-            "[Warning] input_template contains \\n chracters instead of newline. "
-            "You likely want to pass $'\\n' in Bash or \"`n\" in PowerShell."
-        )
-
-    if args.use_ms:
-        from modelscope.utils.hf_util import patch_hub
-
-        # Patch hub to download models from modelscope to speed up.
-        patch_hub()
 
     train(args)

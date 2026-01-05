@@ -278,7 +278,7 @@ def test_grm_vllm(
 
 
 if __name__ == "__main__":
-    model_path = "/path/to/your/grm-vl-model"
+    model_path = "/path/to/your/grm_vl_model"
 
     benchmark_configs = [
         {
@@ -317,7 +317,7 @@ if __name__ == "__main__":
         model=model_path,
         tensor_parallel_size=tensor_parallel_size,
         trust_remote_code=True,
-        gpu_memory_utilization=0.9,
+        gpu_memory_utilization=0.8,
         limit_mm_per_prompt={
             "image": 2, 
             "video": 2
@@ -327,7 +327,6 @@ if __name__ == "__main__":
     # Define sampling parameters
     sampling_params = SamplingParams(
         temperature=0.0,  # For deterministic output
-        do_sample=False,
         max_tokens=512,
     )
 
