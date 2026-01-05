@@ -17,6 +17,7 @@ from lightrft.datasets import (
     ImageGenCoTRewardHandler,
     OmniRewardBenchT2IPairHandler,
     OmniRewardBenchT2VPairHandler,
+    VideoDPOPairHandler,
 )
 
 
@@ -86,6 +87,7 @@ class RFTDatasetVL(Dataset):
             "imagegen-cot-reward-5k": ImageGenCoTRewardHandler(),
             "omnirewardbench-t2i": OmniRewardBenchT2IPairHandler(),
             "omnirewardbench-t2v": OmniRewardBenchT2VPairHandler(),
+            "videodpo": VideoDPOPairHandler(),
         }
 
         # Load data from all specified dataset paths
