@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 
 import torch
+import numpy as np
 from PIL import Image
 from easydict import EasyDict
 from vllm import SamplingParams
@@ -240,26 +241,109 @@ class MultimodalDataProcessor:
         if all_images is None:
             return None
 
-        if isinstance(all_images[0], list):
-            # Multi-image case
-            return [len(img) if img is not None else 0 for img in all_images]
-
         counts = []
-        for img in all_images:
-            if img is None:
+        for item in all_images:
+            if item is None:
                 counts.append(0)
-            elif isinstance(img, list):
-                counts.append(len(img))
-            else:
+            elif isinstance(item, Image.Image):
                 counts.append(1)
+            elif isinstance(item, list):
+                # Check all elements are PIL.Images
+                if any(not isinstance(sub, Image.Image) for sub in item):
+                    bad_item = next(sub for sub in item if not isinstance(sub, Image.Image))
+                    raise RuntimeError(f"Unsupported image type in list: {type(bad_item)}")
+                counts.append(len(item))
+            else:
+                raise RuntimeError(f"Unsupported image type: {type(item)}")
         return counts
+
+    def normalize_videos(self, raw_videos: List) -> List:
+        """
+        Normalize video inputs to torch.Tensor format.
+
+        Handles various input formats:
+            - list[PIL.Image.Image]: single video (list of frames) -> torch.Tensor
+            - np.ndarray: single video -> torch.Tensor
+            - torch.Tensor: single video -> returned as is
+            - list[torch.Tensor/np.ndarray/list]: multiple videos -> list[torch.Tensor]
+            - list[list[PIL.Image.Image]]: multiple videos -> list[torch.Tensor]
+
+        :param raw_videos: List of video inputs for each sample in the batch
+        :type raw_videos: List[Union[None, torch.Tensor, np.ndarray, List[PIL.Image.Image], List]]
+        :return: List of normalized video data (None, torch.Tensor, or List[torch.Tensor])
+        :rtype: List[Union[None, torch.Tensor, List[torch.Tensor]]]
+        """
+        normalized = []
+        for item in raw_videos:
+            normalized.append(self._to_video_tensor(item))
+        return normalized
+
+    def _to_video_tensor(self, item) -> Union[None, torch.Tensor, List[torch.Tensor]]:
+        """
+        Convert a single sample's video data to normalized tensor format.
+
+        Handles detecting whether the input represents a single video (as a list of frames or
+        stacked array) or multiple videos for the sample.
+
+        :param item: Video data for a single sample (None, Tensor, ndarray, or List)
+        :type item: Union[None, torch.Tensor, np.ndarray, List[PIL.Image.Image], List]
+        :return: Normalized video data (None, single Tensor, or list of Tensors)
+        :rtype: Union[None, torch.Tensor, List[torch.Tensor]]
+        """
+        if item is None:
+            return None
+
+        # Detect if it's a list of frames (one video) or a list of multiple videos
+        if isinstance(item, list):
+            if len(item) == 0:
+                return None
+
+            # If it's a list where elements are frames (PIL Images), it's ONE video
+            if isinstance(item[0], Image.Image):
+                return self._frames_to_tensor(item)
+
+            # If it's a list where elements are videos themselves
+            return [self._single_video_to_tensor(v) for v in item]
+
+        return self._single_video_to_tensor(item)
+
+    def _single_video_to_tensor(self, v) -> torch.Tensor:
+        """
+        Convert a single video (list of frames, ndarray, or tensor) to a torch.Tensor.
+
+        :param v: Single video data
+        :type v: Union[torch.Tensor, np.ndarray, List[PIL.Image.Image]]
+        :return: Video tensor in [T, H, W, C] format
+        :rtype: torch.Tensor
+        :raises ValueError: If input type is not supported
+        """
+        if isinstance(v, torch.Tensor):
+            return v
+        if isinstance(v, np.ndarray):
+            return torch.from_numpy(v)
+        if isinstance(v, list):
+            # Probably a list of frames for a single video
+            return self._frames_to_tensor(v)
+        raise ValueError(f"Unsupported video type: {type(v)}")
+
+    def _frames_to_tensor(self, frames: List[Image.Image]) -> torch.Tensor:
+        """
+        Convert a list of PIL Images representing video frames to a stacked video tensor.
+
+        :param frames: List of PIL Image frames
+        :type frames: List[PIL.Image.Image]
+        :return: Stacked video tensor in [T, H, W, C] format
+        :rtype: torch.Tensor
+        """
+        video_np = np.stack([np.array(f.convert("RGB")) for f in frames])
+        return torch.from_numpy(video_np)
 
     def get_videos_num(self, all_videos: Optional[List]) -> Optional[List[int]]:
         """
         Extract the number of videos for each sample. Returns 0 for samples
         without videos to keep grid slicing aligned across mixed modalities.
 
-        :param all_videos: List of videos (can be None, single videos, or lists of videos)
+        :param all_videos: List of videos (can be None, torch.Tensor, or lists of torch.Tensor)
         :type all_videos: Optional[List[Union[None, torch.Tensor, List[torch.Tensor]]]]
         :return: List of video counts per sample, or None if no videos are provided
         :rtype: Optional[List[int]]
@@ -267,17 +351,18 @@ class MultimodalDataProcessor:
         if all_videos is None:
             return None
 
-        if isinstance(all_videos[0], list):
-            return [len(vid) if vid is not None else 0 for vid in all_videos]
-
         counts = []
         for vid in all_videos:
             if vid is None:
                 counts.append(0)
             elif isinstance(vid, list):
+                # Multiple videos
                 counts.append(len(vid))
-            else:
+            elif isinstance(vid, (torch.Tensor, np.ndarray)):
+                # One video
                 counts.append(1)
+            else:
+                raise RuntimeError(f"Unsupported video type: {type(vid)}")
         return counts
 
     def process_multimodal_batch(
@@ -1080,6 +1165,15 @@ class FastExperienceMaker(NaiveExperienceMaker):
                     "Please provide a processor when initializing FastExperienceMaker for VLM support."
                 )
             all_images = self.multimodal_processor.normalize_images(all_images)
+
+        # Normalize videos if provided
+        if all_videos is not None:
+            if self.multimodal_processor is None:
+                raise ValueError(
+                    "Multimodal data (videos) provided but processor was not initialized. "
+                    "Please provide a processor when initializing FastExperienceMaker for VLM support."
+                )
+            all_videos = self.multimodal_processor.normalize_videos(all_videos)
 
         # Get image counts
         images_num = (
@@ -1935,8 +2029,6 @@ class FastExperienceMaker(NaiveExperienceMaker):
             response_length=output.response_length,
             total_length=output.total_length,
             num_actions=output.num_actions,
-            image_num=output.image_num,
-            video_num=output.video_num,
         )
 
         # Add reward_metrics if available

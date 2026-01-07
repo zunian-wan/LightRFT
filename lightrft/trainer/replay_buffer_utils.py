@@ -635,15 +635,15 @@ def _make_experience_batch_vl(items: List, packing_samples: bool = False) -> Exp
     for item in items:
         # Determine number of image components
         if item.image_grid_thws is not None:
-             image_nums.append(item.image_grid_thws.size(0) if item.image_grid_thws.dim() > 1 else 1)
+            image_nums.append(item.image_grid_thws.size(0) if item.image_grid_thws.dim() > 1 else 1)
         else:
-             image_nums.append(0)
+            image_nums.append(0)
         
         # Determine number of video components
         if item.video_grid_thws is not None:
-             video_nums.append(item.video_grid_thws.size(0) if item.video_grid_thws.dim() > 1 else 1)
+            video_nums.append(item.video_grid_thws.size(0) if item.video_grid_thws.dim() > 1 else 1)
         else:
-             video_nums.append(0)
+            video_nums.append(0)
     
     if items and items[0].info:
         for key in items[0].info.keys():
