@@ -18,6 +18,19 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
     def load_data(self, path: str) -> List[Dict[str, Any]]:
         """
         Loads data from json file.
+
+        :param path: Path to the dataset JSON file
+        :type path: str
+
+        :return: List of samples with 'data_root' attached
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = ImageGenCoTRewardHandler()
+            data = handler.load_data("path/to/ImageGen-CoT-Reward.json")
         """
         raw_data = []
         with open(path, 'rb') as f:
@@ -33,6 +46,18 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
         Extract path info for the two images.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'image0' and 'image1'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
         """
         data_root = item['data_root']
         if not data_root:
@@ -55,8 +80,26 @@ class ImageGenCoTRewardHandler(BaseDataHandler):
         item: Dict[str, Any],
         media_content: Dict[str, Any],
         config: Dict[str, Any] | None,
-    ) -> Tuple[List[Dict], List[Dict], Dict]:
+    ) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded image content (PIL images/bytes)
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         image0 = media_content['image0']
         image1 = media_content['image1']
 

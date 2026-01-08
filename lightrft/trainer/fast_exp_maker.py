@@ -54,6 +54,8 @@ from lightrft.trainer.experience_maker_vl import (
 from lightrft.utils.remote_rm_utils import remote_rm_fn
 from lightrft.utils import Timer, get_current_device
 from .utils import RunningMoments, compute_clip_fraction, get_cpgd_advantages_returns, fire_sampling
+from .image_utils import normalize_images, get_images_num, to_pil
+from .video_utils import normalize_videos, get_videos_num, to_video_tensor
 
 # ============================================================================
 # Data Structures
@@ -169,201 +171,6 @@ class MultimodalDataProcessor:
         self.tokenizer = tokenizer
         self.processor = processor
         self.prompt_max_len = prompt_max_len
-
-    def normalize_images(self, raw_images: List) -> List:
-        """
-        Recursively normalize image inputs to PIL.Image format.
-
-        Handles various input formats:
-            - PIL.Image: returned unchanged
-            - dict with 'image' key: extracts image value
-            - str/pathlib.Path: loads from file path (supports file:// prefix)
-            - bytes/bytearray: loads from binary data
-            - list: recursively normalizes each element
-
-        :param raw_images: List of image inputs in various formats
-        :type raw_images: List[Union[PIL.Image.Image, dict, str, pathlib.Path, bytes, bytearray, List]]
-        :return: List of normalized PIL.Image objects (or lists of PIL.Images for multi-image samples)
-        :rtype: List[Union[PIL.Image.Image, List[PIL.Image.Image]]]
-        """
-        normalized = []
-        for item in raw_images:
-            if isinstance(item, list):
-                # Multi-image case: recursively normalize each image
-                normalized.append([self._to_pil(img) for img in item])
-            else:
-                # Single image case
-                normalized.append(self._to_pil(item))
-        return normalized
-
-    def _to_pil(self, img) -> Image.Image:
-        """
-        Convert a single image input to PIL.Image format.
-
-        :param img: Image input (PIL.Image, dict, str, Path, bytes, or bytearray)
-        :type img: Union[PIL.Image.Image, dict, str, pathlib.Path, bytes, bytearray]
-        :return: PIL.Image in RGB mode
-        :rtype: PIL.Image.Image
-        :raises ValueError: If input type is not supported
-        """
-        # Extract from dict if needed
-        if isinstance(img, dict):
-            img = img.get("image", img)
-
-        # Load from file path
-        if isinstance(img, (str, pathlib.Path)):
-            img = str(img)
-            if img.startswith("file://"):
-                img = img[7:]
-            img = os.path.expanduser(img)
-            img = Image.open(img).convert("RGB")
-
-        # Load from binary data
-        if isinstance(img, (bytes, bytearray)):
-            from io import BytesIO
-            img = Image.open(BytesIO(img)).convert("RGB")
-
-        return img
-
-    def get_images_num(self, all_images: Optional[List]) -> Optional[List[int]]:
-        """
-        Extract the number of images for each sample.
-
-        NOTE: We return 0 when a sample has no image (None). Using 1 as a
-        placeholder caused mismatches between expected image placeholders and
-        actual prompt replacements when mixing video-only and image samples.
-
-        :param all_images: List of images (can be None, single images, or lists of images)
-        :type all_images: Optional[List[Union[None, PIL.Image.Image, List[PIL.Image.Image]]]]
-        :return: List of image counts per sample, or None if no images are provided
-        :rtype: Optional[List[int]]
-        """
-        if all_images is None:
-            return None
-
-        counts = []
-        for item in all_images:
-            if item is None:
-                counts.append(0)
-            elif isinstance(item, Image.Image):
-                counts.append(1)
-            elif isinstance(item, list):
-                # Check all elements are PIL.Images
-                if any(not isinstance(sub, Image.Image) for sub in item):
-                    bad_item = next(sub for sub in item if not isinstance(sub, Image.Image))
-                    raise RuntimeError(f"Unsupported image type in list: {type(bad_item)}")
-                counts.append(len(item))
-            else:
-                raise RuntimeError(f"Unsupported image type: {type(item)}")
-        return counts
-
-    def normalize_videos(self, raw_videos: List) -> List:
-        """
-        Normalize video inputs to torch.Tensor format.
-
-        Handles various input formats:
-            - list[PIL.Image.Image]: single video (list of frames) -> torch.Tensor
-            - np.ndarray: single video -> torch.Tensor
-            - torch.Tensor: single video -> returned as is
-            - list[torch.Tensor/np.ndarray/list]: multiple videos -> list[torch.Tensor]
-            - list[list[PIL.Image.Image]]: multiple videos -> list[torch.Tensor]
-
-        :param raw_videos: List of video inputs for each sample in the batch
-        :type raw_videos: List[Union[None, torch.Tensor, np.ndarray, List[PIL.Image.Image], List]]
-        :return: List of normalized video data (None, torch.Tensor, or List[torch.Tensor])
-        :rtype: List[Union[None, torch.Tensor, List[torch.Tensor]]]
-        """
-        normalized = []
-        for item in raw_videos:
-            normalized.append(self._to_video_tensor(item))
-        return normalized
-
-    def _to_video_tensor(self, item) -> Union[None, torch.Tensor, List[torch.Tensor]]:
-        """
-        Convert a single sample's video data to normalized tensor format.
-
-        Handles detecting whether the input represents a single video (as a list of frames or
-        stacked array) or multiple videos for the sample.
-
-        :param item: Video data for a single sample (None, Tensor, ndarray, or List)
-        :type item: Union[None, torch.Tensor, np.ndarray, List[PIL.Image.Image], List]
-        :return: Normalized video data (None, single Tensor, or list of Tensors)
-        :rtype: Union[None, torch.Tensor, List[torch.Tensor]]
-        """
-        if item is None:
-            return None
-
-        # Detect if it's a list of frames (one video) or a list of multiple videos
-        if isinstance(item, list):
-            if len(item) == 0:
-                return None
-
-            # If it's a list where elements are frames (PIL Images), it's ONE video
-            if isinstance(item[0], Image.Image):
-                return self._frames_to_tensor(item)
-
-            # If it's a list where elements are videos themselves
-            return [self._single_video_to_tensor(v) for v in item]
-
-        return self._single_video_to_tensor(item)
-
-    def _single_video_to_tensor(self, v) -> torch.Tensor:
-        """
-        Convert a single video (list of frames, ndarray, or tensor) to a torch.Tensor.
-
-        :param v: Single video data
-        :type v: Union[torch.Tensor, np.ndarray, List[PIL.Image.Image]]
-        :return: Video tensor in [T, H, W, C] format
-        :rtype: torch.Tensor
-        :raises ValueError: If input type is not supported
-        """
-        if isinstance(v, torch.Tensor):
-            return v
-        if isinstance(v, np.ndarray):
-            return torch.from_numpy(v)
-        if isinstance(v, list):
-            # Probably a list of frames for a single video
-            return self._frames_to_tensor(v)
-        raise ValueError(f"Unsupported video type: {type(v)}")
-
-    def _frames_to_tensor(self, frames: List[Image.Image]) -> torch.Tensor:
-        """
-        Convert a list of PIL Images representing video frames to a stacked video tensor.
-
-        :param frames: List of PIL Image frames
-        :type frames: List[PIL.Image.Image]
-        :return: Stacked video tensor in [T, H, W, C] format
-        :rtype: torch.Tensor
-        """
-        video_np = np.stack([np.array(f.convert("RGB")) for f in frames])
-        return torch.from_numpy(video_np)
-
-    def get_videos_num(self, all_videos: Optional[List]) -> Optional[List[int]]:
-        """
-        Extract the number of videos for each sample. Returns 0 for samples
-        without videos to keep grid slicing aligned across mixed modalities.
-
-        :param all_videos: List of videos (can be None, torch.Tensor, or lists of torch.Tensor)
-        :type all_videos: Optional[List[Union[None, torch.Tensor, List[torch.Tensor]]]]
-        :return: List of video counts per sample, or None if no videos are provided
-        :rtype: Optional[List[int]]
-        """
-        if all_videos is None:
-            return None
-
-        counts = []
-        for vid in all_videos:
-            if vid is None:
-                counts.append(0)
-            elif isinstance(vid, list):
-                # Multiple videos
-                counts.append(len(vid))
-            elif isinstance(vid, (torch.Tensor, np.ndarray)):
-                # One video
-                counts.append(1)
-            else:
-                raise RuntimeError(f"Unsupported video type: {type(vid)}")
-        return counts
 
     def process_multimodal_batch(
         self,
@@ -1164,7 +971,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
                     "Multimodal data (images) provided but processor was not initialized. "
                     "Please provide a processor when initializing FastExperienceMaker for VLM support."
                 )
-            all_images = self.multimodal_processor.normalize_images(all_images)
+            all_images = normalize_images(all_images)
 
         # Normalize videos if provided
         if all_videos is not None:
@@ -1173,17 +980,17 @@ class FastExperienceMaker(NaiveExperienceMaker):
                     "Multimodal data (videos) provided but processor was not initialized. "
                     "Please provide a processor when initializing FastExperienceMaker for VLM support."
                 )
-            all_videos = self.multimodal_processor.normalize_videos(all_videos)
+            all_videos = normalize_videos(all_videos)
 
         # Get image counts
         images_num = (
-            self.multimodal_processor.get_images_num(all_images)
+            get_images_num(all_images)
             if self.multimodal_processor and all_images is not None else None
         )
         
         # Get video counts
         videos_num = (
-            self.multimodal_processor.get_videos_num(all_videos)
+            get_videos_num(all_videos)
             if self.multimodal_processor and all_videos is not None else None
         )
 

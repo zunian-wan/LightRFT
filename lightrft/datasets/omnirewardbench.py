@@ -19,6 +19,19 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
     def load_data(self, path: str) -> List[Dict[str, Any]]:
         """
         Loads data from parquet file.
+
+        :param path: Path to the parquet file
+        :type path: str
+
+        :return: List of samples with 'data_root' attached
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = OmniRewardBenchT2IHandler()
+            data = handler.load_data("path/to/OmniRewardBench/data.parquet")
         """
         raw_data = []
         import pyarrow.parquet as pq
@@ -36,7 +49,19 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
-        Extract path info for the two videos.
+        Extract media info (paths) for the two images.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'image1' and 'image2'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
         """
         data_root = item['data_root']
         if not data_root:
@@ -48,6 +73,9 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
         return {'image1': {'image_local_path': full_path1}, 'image2': {'image_local_path': full_path2}}
 
     def _get_label(self, choice: str) -> str:
+        """
+        Helper to determine preference label.
+        """
         if choice == "response1":
             return "A"
         elif choice == "response2":
@@ -57,7 +85,25 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         image1 = media_content['image1']
         image2 = media_content['image2']
 
@@ -139,7 +185,19 @@ class OmniRewardBenchT2VHandler(OmniRewardBenchT2IHandler):
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
-        Extract path info for the two videos.
+        Extract media info (paths) for the two videos.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'video1' and 'video2'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
         """
         data_root = item['data_root']
         if not data_root:
@@ -152,7 +210,25 @@ class OmniRewardBenchT2VHandler(OmniRewardBenchT2IHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
 
@@ -236,7 +312,19 @@ class OmniRewardBenchT2AHandler(OmniRewardBenchT2IHandler):
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
-        Extract path info for the two audios.
+        Extract media info (paths) for the two audios.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'audio1' and 'audio2'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
         """
         data_root = item['data_root']
         if not data_root:
@@ -249,7 +337,25 @@ class OmniRewardBenchT2AHandler(OmniRewardBenchT2IHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         audio1 = media_content['audio1']
         audio2 = media_content['audio2']
 
@@ -321,7 +427,25 @@ class OmniRewardBenchT2IGRMHandler(OmniRewardBenchT2IHandler):
     """
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into generative messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         image1 = media_content['image1']
         image2 = media_content['image2']
 
@@ -402,7 +526,25 @@ class OmniRewardBenchT2IPairHandler(OmniRewardBenchT2IHandler):
     """
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into generative messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         image1 = media_content['image1']
         image2 = media_content['image2']
 
@@ -480,7 +622,25 @@ class OmniRewardBenchT2VPairHandler(OmniRewardBenchT2VHandler):
     """
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into generative messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
 

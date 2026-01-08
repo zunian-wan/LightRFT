@@ -49,7 +49,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from reward_fn_utils import reward_fn, RECIPE
 
 
-def train(args):
+def train(args: argparse.Namespace) -> None:
     """
     Main training function for GRPO with Rule-based function.
     Support vision-language models for image and video inputs.
@@ -63,13 +63,24 @@ def train(args):
         6. Run training loop via SPMDPPOTrainerVL
         7. Save final model
 
-    Args:
-        args: Parsed command-line arguments containing all training configuration
+    :param args: Parsed command-line arguments containing all training configuration
+    :type args: argparse.Namespace
 
-    Key configurations:
-        - meta_init: Initialize models on meta device to save CPU RAM
-        - freeze_prefix: Freeze vision encoder during training
-        - fsdp: Use FSDP instead of DeepSpeed
+    :return: None
+    :rtype: None
+
+    **Key configurations:**
+
+    - meta_init: Initialize models on meta device to save CPU RAM
+    - freeze_prefix: Freeze vision encoder during training
+    - fsdp: Use FSDP instead of DeepSpeed
+
+    **Example:**
+
+    .. code-block:: python
+
+        # Assuming args is already defined via argparse
+        train(args)
     """
     # configure strategy
     strategy = get_strategy(args)
@@ -213,7 +224,6 @@ def train(args):
         tokenizer, 
         strategy, 
         args.prompt_max_len,
-        is_train=True,
         config={
             "task_instruction": system_prompt,
             "video_fps": args.fps,

@@ -2,11 +2,10 @@ import random
 import copy
 
 from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoTokenizer, AutoProcessor
 
 from loguru import logger
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List
 
 from .utils import load_multimodal_content
 from lightrft.datasets import (
@@ -34,9 +33,7 @@ class RFTDatasetVL(Dataset):
     prepares inputs suitable for the model.
 
     :param dataset_paths: List of dataset file paths or directories. The
-        handler is determined by the source keyword (e.g. "rapidata-t2v",
-        "videogen-rewardbench"). The format is "source:path".
-        e.g. "rapidata-t2v:/path/to/file.parquet"
+        handler is determined by the source keyword (e.g. "source:path").
     :type dataset_paths: List[str]
     :param processor: Multimodal processor used for tokenization and visual
         processing.
@@ -48,11 +45,21 @@ class RFTDatasetVL(Dataset):
     :param max_length: Maximum sequence length for tokenization/truncation.
         Defaults to 4096.
     :type max_length: int
-    :param is_train: Whether the dataset is used for training or evaluation.
-        Defaults to True.
-    :type is_train: bool
     :param config: Additional configuration options.
     :type config: Dict[str, Any]
+
+    **Example:**
+
+    .. code-block:: python
+
+        from transformers import AutoProcessor, AutoTokenizer
+        processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        dataset = RFTDatasetVL(
+            dataset_paths=["hpdv3:/path/to/data.json"],
+            processor=processor,
+            tokenizer=tokenizer
+        )
     """
     def __init__(
             self, 
@@ -61,7 +68,6 @@ class RFTDatasetVL(Dataset):
             tokenizer: AutoTokenizer, 
             strategy = None,
             max_length: int = 4096, 
-            is_train: bool = True,
             config: Dict[str, Any] = None,
         ):
         
@@ -70,7 +76,6 @@ class RFTDatasetVL(Dataset):
         self.tokenizer = tokenizer
         self.strategy = strategy
         self.max_length = max_length
-        self.is_train = is_train
         self.config = config if config else {}
 
         self.media_content_loader = load_multimodal_content
@@ -120,9 +125,26 @@ class RFTDatasetVL(Dataset):
         random.shuffle(self.data)
 
     def __len__(self):
+        """
+        Return the total number of items in the dataset.
+
+        :return: Number of data items
+        :rtype: int
+        """
         return len(self.data)
 
     def __getitem__(self, idx):
+        """
+        Get a specific data item by index.
+
+        Processes multimodal content (images/videos) and prepares the prompt.
+
+        :param idx: Index of the item to retrieve
+        :type idx: int
+
+        :return: A tuple containing (input_text, image_inputs, video_inputs, reference, label)
+        :rtype: Tuple[str, Optional[List], Optional[List], Any, str]
+        """
         item = self.data[idx]
         source = item["source"]
         
@@ -156,21 +178,45 @@ class RFTDatasetVL(Dataset):
         input_text, image_inputs, video_inputs = self._prepare_inputs(messages)
 
         # Configure label, by default "general"
+        # Label is used to identified which reward function or reward model to use
         label = config.get("label", "general")
 
         return input_text, image_inputs, video_inputs, reference, label
 
     def _prepare_inputs(self, messages):
+        """
+        Convert messages into formatted input text and process vision information.
+
+        :param messages: List of chat messages (role and content)
+        :type messages: List[Dict[str, str]]
+
+        :return: Formatted input string, images, and videos
+        :rtype: Tuple[str, Optional[List], Optional[List]]
+        """
         # In RL training, no need to keep assistant responses, since it can lead to data leakage
-        # Here we remove messages with role "assistant"
+        # Here we check for role "assistant" to remove assistant messages
         messages = [msg for msg in messages if msg["role"] != "assistant"]
 
         input_text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         
-        image_inputs, video_inputs = self.process_vision_info(messages, return_video_kwargs=False)
+        # Support Qwen3-VL video metadata
+        # Setting return_video_metadata=True will return video_inputs as a list of (video, metadata)
+        image_inputs, video_inputs = self.process_vision_info(
+            messages, 
+            return_video_kwargs=False, 
+            return_video_metadata=True
+        )
 
         return input_text, image_inputs, video_inputs
     
     def collate_fn(self, batch):
-        input_texts, image_inputs_list, video_inputs_list, references, labels = zip(*batch)
-        return list(input_texts), list(image_inputs_list), list(video_inputs_list), list(references), list(labels)
+        """
+        Collate a batch of samples into a list of tuples.
+
+        :param batch: List of samples from __getitem__
+        :type batch: List[Tuple]
+
+        :return: Transposed list of batch components
+        :rtype: List[List]
+        """
+        return [list(item) for item in zip(*batch)]

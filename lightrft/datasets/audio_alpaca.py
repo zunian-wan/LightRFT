@@ -15,6 +15,21 @@ class AudioAlpacaHandler(BaseDataHandler):
     Dataset Repo: https://huggingface.co/datasets/declare-lab/audio-alpaca
     """
     def load_data(self, path: str) -> List[Dict[str, Any]]:
+        """
+        Load data from parquet files in the specified path.
+
+        :param path: Path to the parquet file or directory containing parquet files
+        :type path: str
+
+        :return: A list of data items
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            data = handler.load_data("path/to/audio-alpaca")
+        """
         # If path is a directory, look for parquet files
         if os.path.isdir(path):
             search_pattern = os.path.join(path, "*.parquet")
@@ -47,6 +62,18 @@ class AudioAlpacaHandler(BaseDataHandler):
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """
         Extract audio bytes info for chosen and rejected audios.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing audio bytes for 'chosen_audio' and 'rejected_audio'
+        :rtype: Dict[str, Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
         """
         return {
             'chosen_audio': {
@@ -59,6 +86,25 @@ class AudioAlpacaHandler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content (audios)
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
 
         chosen_audio = media_content['chosen_audio']
         rejected_audio = media_content['rejected_audio']

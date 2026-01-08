@@ -28,6 +28,19 @@ class RapidataT2VHandler(BaseDataHandler):
     def load_data(self, path: str) -> List[Dict[str, Any]]:
         """
         Loads data from parquet file.
+
+        :param path: Path to the parquet file
+        :type path: str
+
+        :return: List of samples with 'data_root' attached
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = RapidataT2VHandler()
+            data = handler.load_data("path/to/Rapidata/data.parquet")
         """
         raw_data = []
         import pyarrow.parquet as pq
@@ -80,7 +93,25 @@ class RapidataT2VHandler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
 
@@ -165,7 +196,19 @@ class RapidataI2VHandler(RapidataT2VHandler):
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
-        Extract path info for the two videos.
+        Extract media info (paths) for the two videos and bytes for initial image.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for videos and bytes for 'init_image'
+        :rtype: Dict[str, Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
         """
         data_root = item["data_root"]
         if not data_root:
@@ -207,7 +250,25 @@ class RapidataI2VHandler(RapidataT2VHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse an image-to-video data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content (videos and images)
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
         init_image = media_content['init_image']
@@ -293,8 +354,26 @@ class RapidataT2VPairHandler(RapidataT2VHandler):
                    item: Dict[str, Any], 
                    media_content: Dict[str, Any], 
                    config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], List[Dict], Dict]:
-        
+                   ) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a text-to-video data item into pairwise messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
 
@@ -364,8 +443,26 @@ class RapidataI2VPairHandler(RapidataI2VHandler):
                    item: Dict[str, Any], 
                    media_content: Dict[str, Any], 
                    config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], List[Dict], Dict]:
-        
+                   ) -> Tuple[List[Dict], Dict]:
+        """
+        Parse an image-to-video data item into pairwise messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
         init_image = media_content['init_image']

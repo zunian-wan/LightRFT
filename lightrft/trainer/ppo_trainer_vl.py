@@ -850,7 +850,7 @@ class PPOTrainerVL(ABC):
                 for sub_k, sub_v in v.items():
                     log_key = f"{k}/{sub_k}"
                     if isinstance(sub_v, torch.Tensor):
-                        status[log_key] = sub_v.float().mean().item()
+                        status[log_key] = sub_v.mean().item()
                     elif isinstance(sub_v, list) and sub_v and isinstance(sub_v[0], (int, float)):
                         status[log_key] = sum(sub_v) / len(sub_v)
                     elif isinstance(sub_v, (int, float)):

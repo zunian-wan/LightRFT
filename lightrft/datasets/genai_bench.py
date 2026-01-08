@@ -23,6 +23,19 @@ class GenAIBenchPairHandler(BaseDataHandler):
         """
         Loads data from parquet file(s) and expands into pairs.
         Each row in GenAI-Bench has multiple images from different models.
+
+        :param path: Path to the parquet file or directory
+        :type path: str
+
+        :return: List of expanded pairs with image bytes and metadata
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = GenAIBenchPairHandler()
+            data = handler.load_data("path/to/GenAI-Bench/data.parquet")
         """
         
         if os.path.isdir(path):
@@ -91,6 +104,21 @@ class GenAIBenchPairHandler(BaseDataHandler):
         return expanded_data
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract media info (bytes) for the two images.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing image bytes for 'image1' and 'image2'
+        :rtype: Dict[str, Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
+        """
         return {
             'image1': {'image_bytes': item['image1_bytes']},
             'image2': {'image_bytes': item['image2_bytes']}
@@ -98,6 +126,26 @@ class GenAIBenchPairHandler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
+        image1 = media_content['image1']
 
         image1 = media_content['image1']
         image2 = media_content['image2']
@@ -192,6 +240,19 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
         """
         Loads data from json file and expands into pairs.
         Each row in GenAI-Bench-Video has multiple videos from different models.
+
+        :param path: Path to the JSON file or directory
+        :type path: str
+
+        :return: List of expanded pairs with video paths and metadata
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = GenAIBenchVideoPairHandler()
+            data = handler.load_data("path/to/GenAI-Bench-Video/genai_video.json")
         """
         if os.path.isdir(path):
             json_path = os.path.join(path, "genai_video.json")
@@ -253,6 +314,21 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
         return expanded_data
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+        """
+        Extract media info (paths) for the two videos.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'video1' and 'video2'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
+        """
         return {
             'video1': {'video_local_path': item['video1_path']},
             'video2': {'video_local_path': item['video2_path']}
@@ -260,7 +336,25 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
 

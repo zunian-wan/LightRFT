@@ -18,6 +18,22 @@ class HPDv3Handler(BaseDataHandler):
     task_type = "text-to-image"
 
     def load_data(self, path: str) -> List[Dict[str, Any]]:
+        """
+        Loads data from JSON/JSONL file.
+
+        :param path: Path to the JSON/JSONL file
+        :type path: str
+
+        :return: List of valid samples with 'data_root' attached
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = HPDv3Handler()
+            data = handler.load_data("path/to/HPDv3/data.json")
+        """
         try:
             with open(path, 'rb') as f:
                 raw_data = json.load(f)
@@ -48,6 +64,21 @@ class HPDv3Handler(BaseDataHandler):
         return valid_data
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+        """
+        Extract media info (paths) for the two images.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'preferred_image' and 'rejected_image', or None if files missing
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
+        """
         data_root = item['data_root']
 
         # Build full local paths
@@ -69,6 +100,25 @@ class HPDv3Handler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         # Get loaded visual content
         preferred_image = media_content['preferred_image']
         rejected_image = media_content['rejected_image']
@@ -149,6 +199,25 @@ class HPDv3GRMHandler(HPDv3Handler):
     """
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into generative messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         # Get loaded visual content
         preferred_image = media_content['preferred_image']
         rejected_image = media_content['rejected_image']
@@ -239,7 +308,26 @@ class HPDv3PairHandler(HPDv3Handler):
                    item: Dict[str, Any], 
                    visual_content: Dict[str, Any], 
                    config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], List[Dict], Dict]:
+                   ) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a data item into pairwise messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param visual_content: Loaded visual content
+        :type visual_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         # Get loaded visual content
         preferred_image = visual_content['preferred_image']
         rejected_image = visual_content['rejected_image']

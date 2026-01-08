@@ -99,9 +99,7 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --save_trajectories \
    --fsdp \
    --use_kl_loss \
-   --rm_use_engine \
    --mixed_mm_data \
-   --reward_pretrain "{}" \
    --save_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
    --ckpt_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
    --micro_train_batch_size 8 \

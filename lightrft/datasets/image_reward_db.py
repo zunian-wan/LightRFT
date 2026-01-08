@@ -21,7 +21,8 @@ class ImageRewardDBHandler(BaseDataHandler):
     task_type = "text-to-image"
 
     def load_data(self, path: str) -> List[Dict[str, Any]]:
-        """Load ImageRewardDB shards and build preference pairs.
+        """
+        Load ImageRewardDB shards and build preference pairs.
 
         This method scans the given dataset root for ImageRewardDB JSON shards and
         aggregates image entries by ``prompt_id``. For each prompt group, it
@@ -33,16 +34,12 @@ class ImageRewardDBHandler(BaseDataHandler):
 
         :return: List of preference pair dictionaries.
         :rtype: List[Dict[str, Any]]
-            - ``prompt_id`` (str): Unique identifier for the prompt group.
-            - ``prompt`` (str): The text prompt used to generate images.
-            - ``classification`` (str): Optional category label; ``"Unknown"`` if missing.
-            - ``data_root`` (str): Echo of the provided ``path`` for later path resolution.
-            - ``chosen_img`` (str): Relative path of the preferred image.
-            - ``rank_chosen`` (int): Rank of the preferred image.
-            - ``overall_rating_chosen`` (Optional[float|int]): Optional quality score of the preferred image.
-            - ``rejected_img`` (str): Relative path of the non-preferred image.
-            - ``rank_rejected`` (int): Rank of the non-preferred image.
-            - ``overall_rating_rejected`` (Optional[float|int]): Optional quality score of the non-preferred image.
+
+        **Example:**
+
+        .. code-block:: python
+
+            data = handler.load_data("path/to/ImageRewardDB")
         """
 
         # Locate all JSON shard files
@@ -135,6 +132,21 @@ class ImageRewardDBHandler(BaseDataHandler):
         return preference_pairs
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+        """
+        Extract media info (paths) for the two images.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'preferred_image' and 'rejected_image'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
+        """
         data_root = item['data_root']
 
         # Build full local paths
@@ -156,6 +168,25 @@ class ImageRewardDBHandler(BaseDataHandler):
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            msg0, msg1, other = handler.parse_item(item, media_content, config)
+        """
         # Get loaded visual content
         preferred_image = media_content['preferred_image']
         rejected_image = media_content['rejected_image']

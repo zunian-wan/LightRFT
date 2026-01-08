@@ -17,8 +17,26 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
     task_type = "text-to-video"
 
     def load_data(self, path: str) -> List[Dict[str, Any]]:
+        """
+        Loads data from CSV file.
+
+        :param path: Path to the CSV file
+        :type path: str
+
+        :return: List of valid samples with 'data_root' attached
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = VideoGenRewardBenchPairHandler()
+            data = handler.load_data("path/to/VideoGen-RewardBench/data.csv")
+        """
         try:
             df = pd.read_csv(path)
+            # Filter out rows with missing labels
+            df = df.dropna(subset=['Overall'])
             raw_data = df.to_dict('records')
         except Exception as e:
             logger.error(f"Error loading CSV from {path}: {e}")
@@ -42,6 +60,21 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         return valid_data
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+        """
+        Extract path info for the two videos.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'video_A' and 'video_B'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            info = handler.get_media_info(item)
+        """
         data_root = item['data_root']
 
         # Build full local paths
@@ -58,6 +91,25 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
                    media_content: Dict[str, Any], 
                    config: Dict[str, Any]
                    ) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded video content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         # Get loaded visual content
         video_A = media_content['video_A']
         video_B = media_content['video_B']

@@ -30,6 +30,19 @@ class VideoDPOPairHandler(BaseDataHandler):
     def load_data(self, path: str) -> List[Dict[str, Any]]:
         """
         Loads data from pair.json.
+
+        :param path: Path to the pair.json file
+        :type path: str
+
+        :return: List of processed data items with resolved relative paths
+        :rtype: List[Dict[str, Any]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            handler = VideoDPOPairHandler()
+            data = handler.load_data("path/to/VideoDPO/pair.json")
         """
         data_root = os.path.dirname(path)
             
@@ -62,6 +75,20 @@ class VideoDPOPairHandler(BaseDataHandler):
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
         Extract path info for the two videos.
+
+        :param item: A data item from load_data
+        :type item: Dict[str, Any]
+
+        :return: Dict containing local paths for 'video1' and 'video2'
+        :rtype: Dict[str, Dict[str, str]]
+
+        **Example:**
+
+        .. code-block:: python
+
+            item = {"data_root": "/root", "video1_rel_path": "v1.mp4", "video2_rel_path": "v2.mp4"}
+            info = handler.get_media_info(item)
+            # Result: {'video1': {'video_local_path': '/root/v1.mp4'}, ...}
         """
         data_root = item["data_root"]
         
@@ -71,8 +98,26 @@ class VideoDPOPairHandler(BaseDataHandler):
         return {'video1': {'video_local_path': full_path1}, 'video2': {'video_local_path': full_path2}}
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
-                   config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+                   config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
+        """
+        Parse a data item into messages and metadata.
 
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded video content (tensors/paths)
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages, metadata)
+        :rtype: Tuple[List[Dict], Dict]
+
+        **Example:**
+
+        .. code-block:: python
+
+            messages, other = handler.parse_item(item, media_content, config)
+        """
         video1 = media_content['video1']
         video2 = media_content['video2']
 
