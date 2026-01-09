@@ -4,6 +4,7 @@ from .omnirewardbench import *
 from .imagegen_cot_reward import *
 from .rapidata import *
 from .image_reward_db import *
+from .synthscars import *
 from .hpdv3 import *
 from .utils import (
     extract_answer,

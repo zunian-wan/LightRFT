@@ -11,6 +11,7 @@ TBS=8
 LR=1e-5
 MAX_LENGTH=8196
 FPS=2.0
+max_pixels=276480 # 360*768
 
 # Training data paths
 data_files=(
@@ -24,11 +25,33 @@ DATA_PATH=$(printf '%s,' "${data_files[@]}" | sed 's/,$//')
 EVAL_DATA_PATH="Path/to/eval/data"
 
 # Example Task Instruction
-TASK_INSTRUCTION="""
-Provide the task instruction here.
-The task instruction should clearly explain the evaluation criteria.
-It should include a {prompt} placeholder for the text prompt.
-"""
+read -r -d '' TASK_INSTRUCTION << 'EOF'
+You are a professional forensic image analyst. Your task is to detect and locate artifacts in AI-generated images.
+### INSTRUCTIONS:
+For each input image, you must provide a two-stage response strictly following this structure:
+
+1. **Reasoning Stage**: Use the `<think>` tag to analyze the image. Identify global logical inconsistencies (lighting, shadows, physics) and local structural anomalies (distorted features, fused textures).
+2. **Grounded Answer Stage**: Use the `<answer>` tag to provide a structured list of findings.
+- Start with: "Detected artifacts as follows:"
+- Format: "[Number]. <|object_ref_start|>artifact name<|object_ref_end|><|box_start|>[ymin, xmin, ymax, xmax]<|box_end|>: explanation"
+- Coordinates: Must be normalized to 0-1000 and ordered as [ymin, xmin, ymax, xmax].
+
+### OUTPUT EXAMPLE:
+<think>
+The image shows a person's face where the lighting on the left cheek contradicts the primary light source from the right. Additionally, the eye region exhibits synthetic textures, with the left iris appearing distorted and lacking a natural pupil reflection.
+</think>
+<answer>
+Detected artifacts as follows:
+1. <|object_ref_start|>left eye<|object_ref_end|><|box_start|>[245, 180, 310, 295]<|box_end|>: The iris is distorted and missing a natural specular reflection.
+2. <|object_ref_start|>left cheek shadow<|object_ref_end|><|box_start|>[400, 150, 650, 320]<|box_end|>: The shadow direction is inconsistent with the main light source, violating physical laws.
+</answer>
+
+Note: In the above example, the artifact descriptions and coordinates are only examples to illustrate the required format.
+Your actual evaluation must be based solely on the provided image.
+
+### TASK:
+Your task is provided below. Please follow the instructions strictly.
+EOF
 
 # Pretrained model path
 PRETRAIN_PATH="/path/to/the/pretrained/model"
@@ -93,8 +116,8 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
     --eval_data ${EVAL_DATA_PATH} \
     --eval_steps 500 \
     --gradient_checkpointing \
-    --save_steps 500 \
-    --max_ckpt_num 10 \
+    --save_steps 1000 \
+    --max_ckpt_num 3 \
     --use_tensorboard "tensorboard/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME}" \
     --use_wandb "${WANDB_API_KEY}" \
     --wandb_project "${WANDB_PROJECT}" \
