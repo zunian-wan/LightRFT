@@ -23,15 +23,12 @@ Classes:
 
 import os
 import time
-import pathlib
 import warnings
 from typing import Callable, Dict, List, Tuple, Union, Optional
 from dataclasses import dataclass
 from copy import deepcopy
 
 import torch
-import numpy as np
-from PIL import Image
 from easydict import EasyDict
 from vllm import SamplingParams
 
@@ -54,8 +51,8 @@ from lightrft.trainer.experience_maker_vl import (
 from lightrft.utils.remote_rm_utils import remote_rm_fn
 from lightrft.utils import Timer, get_current_device
 from .utils import RunningMoments, compute_clip_fraction, get_cpgd_advantages_returns, fire_sampling
-from .image_utils import normalize_images, get_images_num, to_pil
-from .video_utils import normalize_videos, get_videos_num, to_video_tensor
+from .image_utils import normalize_images, get_images_num
+from .video_utils import normalize_videos, get_videos_num
 
 # ============================================================================
 # Data Structures
@@ -1467,7 +1464,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
             rewards = rewards.flatten().to("cpu").chunk(len(experiences))
             return experiences, rewards
 
-        elif config.advantage_estimator in ["group_norm", "grpo"]:
+        elif config.advantage_estimator in ["group_norm", "grpo", "drgrpo"]:
             # Group normalization with optional dynamic filtering
             if config.dynamic_sampling:
                 step_size = config.n_samples_per_prompt // config.micro_train_batch_size
@@ -1498,7 +1495,11 @@ class FastExperienceMaker(NaiveExperienceMaker):
             # Normalize within groups
             rewards = rewards.reshape(-1, config.n_samples_per_prompt).to("cuda").float()
             baseline = rewards.mean(-1, keepdim=True)
-            rewards = (rewards - baseline) / (rewards.std(1, keepdim=True) + 1e-9)
+            if config.advantage_estimator == "drgrpo":
+                # DR.GRPO: No std division
+                rewards = rewards - baseline
+            else:
+                rewards = (rewards - baseline) / (rewards.std(1, keepdim=True) + 1e-9)
             rewards = rewards.flatten().to("cpu").chunk(len(experiences))
 
             return experiences, rewards
@@ -1578,7 +1579,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
                     )
                 )
 
-            elif self.advantage_estimator in ["reinforce", "rloo", "reinforce_baseline", "group_norm"]:
+            elif self.advantage_estimator in ["reinforce", "rloo", "reinforce_baseline", "group_norm", "drgrpo"]:
                 # Compute cumulative returns
                 experience.returns = self.get_cumulative_returns(
                     final_reward, experience.action_mask, generate_kwargs["gamma"]

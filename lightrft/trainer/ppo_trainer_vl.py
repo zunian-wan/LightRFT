@@ -173,7 +173,11 @@ class PPOTrainerVL(ABC):
         self.critic_scheduler = critic_scheduler
 
         # TODO: Investigate use_cpg_loss flag
-        self.actor_loss_fn = PolicyLoss(eps_clip, use_cpg_loss=self.args.use_cpg_loss)
+        self.actor_loss_fn = PolicyLoss(
+            eps_clip,
+            use_cpg_loss=self.args.use_cpg_loss,
+            use_token_level_loss=self.args.advantage_estimator == "drgrpo"
+        )
 
         self.critic_loss_fn = ValueLoss(value_clip)
         self.ptx_loss_fn = GPTLMLoss()

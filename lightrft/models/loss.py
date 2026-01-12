@@ -66,11 +66,18 @@ class PolicyLoss(nn.Module):
     """
     Policy Loss for PPO
     """
-    def __init__(self, clip_eps: float = 0.2, use_dapo: bool = False, use_cpg_loss: bool = False) -> None:
+    def __init__(
+            self, 
+            clip_eps: float = 0.2, 
+            use_dapo: bool = False, 
+            use_cpg_loss: bool = False, 
+            use_token_level_loss: bool = False
+        ) -> None:
         super().__init__()
         self.clip_eps = clip_eps
         self.use_dapo = use_dapo
         self.use_cpg_loss = use_cpg_loss
+        self.use_token_level_loss = use_token_level_loss
 
     def forward(
         self,
@@ -93,7 +100,12 @@ class PolicyLoss(nn.Module):
         surr1 = ratio * advantages
         surr2 = ratio.clamp(1 - self.clip_eps, 1 + self.clip_eps) * advantages
         loss = -torch.min(surr1, surr2)
-        loss = masked_mean(loss, action_mask, dim=-1).mean()
+
+        # Decide how to aggregate loss
+        if self.use_token_level_loss:
+            loss = masked_mean(loss, action_mask)
+        else:
+            loss = masked_mean(loss, action_mask, dim=-1).mean()
 
         return loss
 

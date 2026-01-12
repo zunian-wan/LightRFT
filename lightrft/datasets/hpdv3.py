@@ -360,7 +360,7 @@ class HPDv3PairHandler(HPDv3Handler):
 
             {"role": "user", "content": [
                 {"type": "text", "text": "The following is the first image."},
-                {"type": "image", "image": image0, "max_pixels": max_pixels} # to save memory
+                {"type": "image", "image": image0, "max_pixels": max_pixels}
             ]},
             
             {"role": "user", "content": [

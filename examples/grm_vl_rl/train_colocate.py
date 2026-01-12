@@ -472,7 +472,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--advantage_estimator",
         type=str,
-        choices=["gae", "reinforce", "rloo", "reinforce_baseline", "group_norm", "cpgd", "reinforce++"],
+        choices=["gae", "reinforce", "rloo", "reinforce_baseline", "group_norm", "drgrpo", "cpgd", "reinforce++"],
         default="gae",
         help="Choose advantage estimation method: gae, reinforce, rloo, reinforce_baseline, group_norm, reinforce++",
     )
@@ -488,7 +488,6 @@ if __name__ == "__main__":
 
     # Models
     parser.add_argument("--pretrain", type=str, default=None, help="HF model name or path")
-    parser.add_argument("--reward_pretrain", type=str, default=None, help="HF model name or path")
     parser.add_argument("--remote_rm_url", type=str, default=None, help="remote RM API")
     parser.add_argument("--critic_pretrain", type=str, default=None, help="HF model name or path")
     parser.add_argument("--value_head_prefix", type=str, default="score")
@@ -545,7 +544,7 @@ if __name__ == "__main__":
     elif args.critic_pretrain is None:
         args.critic_pretrain = args.pretrain
 
-    if args.advantage_estimator in ["rloo", "reinforce_baseline", "group_norm"]:
+    if args.advantage_estimator in ["rloo", "reinforce_baseline", "group_norm", "drgrpo"]:
         assert args.n_samples_per_prompt > 1, f"{args.advantage_estimator} requires n_samples_per_prompt > 1"
 
     if args.use_kl_loss:
