@@ -831,7 +831,7 @@
       <ul>
         <li><a href="api_doc/datasets/image_reward_db.html#lightrft.datasets.image_reward_db.ImageRewardDBHandler.get_media_info">(lightrft.datasets.image_reward_db.ImageRewardDBHandler method)</a>
 </li>
-        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler.get_media_info">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler method)</a>
+        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler.get_media_info">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler method)</a>
 </li>
         <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler.get_media_info">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler method)</a>
 </li>
@@ -869,6 +869,8 @@
       <li><a href="api_doc/strategy/sglang_utils/index.html#lightrft.strategy.sglang_utils.get_sglang_engine">get_sglang_engine() (in module lightrft.strategy.sglang_utils)</a>
 </li>
       <li><a href="api_doc/strategy/strategy.html#lightrft.strategy.strategy.get_strategy">get_strategy() (in module lightrft.strategy.strategy)</a>
+</li>
+      <li><a href="api_doc/datasets/utils.html#lightrft.datasets.utils.get_task_instructions">get_task_instructions() (in module lightrft.datasets.utils)</a>
 </li>
       <li><a href="api_doc/strategy/fsdp/fsdp_utils.html#lightrft.strategy.fsdp.fsdp_utils.get_tensor_norm">get_tensor_norm() (in module lightrft.strategy.fsdp.fsdp_utils)</a>
 </li>
@@ -922,9 +924,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3GRMHandler">HPDv3GRMHandler (class in lightrft.datasets.hpdv3)</a>
 </li>
+      <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3Handler">HPDv3Handler (class in lightrft.datasets.hpdv3)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3Handler">HPDv3Handler (class in lightrft.datasets.hpdv3)</a>
+      <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3PairHandler">HPDv3PairHandler (class in lightrft.datasets.hpdv3)</a>
 </li>
       <li><a href="api_doc/models/loss.html#lightrft.models.loss.HPSLoss">HPSLoss (class in lightrft.models.loss)</a>
 </li>
@@ -942,11 +946,11 @@
         <li><a href="api_doc/trainer/replay_buffer_utils.html#lightrft.trainer.replay_buffer_utils.BufferItemVL.image_grid_thws">(lightrft.trainer.replay_buffer_utils.BufferItemVL attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler">ImageGenCoTRewardHandler (class in lightrft.datasets.imagegen_cot_reward)</a>
+      <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.image_num">image_num (lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
+</li>
+      <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler">ImageGenCoTRewardGRMHandler (class in lightrft.datasets.imagegen_cot_reward)</a>
 </li>
       <li><a href="api_doc/datasets/image_reward_db.html#lightrft.datasets.image_reward_db.ImageRewardDBHandler">ImageRewardDBHandler (class in lightrft.datasets.image_reward_db)</a>
-</li>
-      <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.img_num">img_num (lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
 </li>
       <li><a href="api_doc/trainer/experience_maker.html#lightrft.trainer.experience_maker.Experience.info">info (lightrft.trainer.experience_maker.Experience attribute)</a>
 
@@ -1528,7 +1532,7 @@
       <ul>
         <li><a href="api_doc/datasets/image_reward_db.html#lightrft.datasets.image_reward_db.ImageRewardDBHandler.load_data">(lightrft.datasets.image_reward_db.ImageRewardDBHandler method)</a>
 </li>
-        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler.load_data">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler method)</a>
+        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler.load_data">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler method)</a>
 </li>
         <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler.load_data">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler method)</a>
 </li>
@@ -1828,8 +1832,14 @@
 </li>
       <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler">OmniRewardBenchT2IHandler (class in lightrft.datasets.omnirewardbench)</a>
 </li>
+      <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IPairHandler">OmniRewardBenchT2IPairHandler (class in lightrft.datasets.omnirewardbench)</a>
+</li>
       <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler">OmniRewardBenchT2VHandler (class in lightrft.datasets.omnirewardbench)</a>
 </li>
+      <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VPairHandler">OmniRewardBenchT2VPairHandler (class in lightrft.datasets.omnirewardbench)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/strategy/deepspeed/deepspeed.html#lightrft.strategy.deepspeed.deepspeed.DeepspeedStrategy.optimizer_step">optimizer_step() (lightrft.strategy.deepspeed.deepspeed.DeepspeedStrategy method)</a>
 
       <ul>
@@ -1840,8 +1850,6 @@
         <li><a href="api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.optimizer_step">(lightrft.strategy.strategy_base.StrategyBase method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.output_texts">output_texts (lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
 </li>
       <li><a href="api_doc/strategy/config.html#lightrft.strategy.config.StrategyConfig.overlap_comm">overlap_comm (lightrft.strategy.config.StrategyConfig attribute)</a>
@@ -1875,9 +1883,11 @@
       <ul>
         <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3Handler.parse_item">(lightrft.datasets.hpdv3.HPDv3Handler method)</a>
 </li>
+        <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3PairHandler.parse_item">(lightrft.datasets.hpdv3.HPDv3PairHandler method)</a>
+</li>
         <li><a href="api_doc/datasets/image_reward_db.html#lightrft.datasets.image_reward_db.ImageRewardDBHandler.parse_item">(lightrft.datasets.image_reward_db.ImageRewardDBHandler method)</a>
 </li>
-        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler.parse_item">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardHandler method)</a>
+        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler.parse_item">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler method)</a>
 </li>
         <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler.parse_item">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler method)</a>
 </li>
@@ -1885,11 +1895,19 @@
 </li>
         <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler.parse_item">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler method)</a>
 </li>
+        <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IPairHandler.parse_item">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2IPairHandler method)</a>
+</li>
         <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler.parse_item">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler method)</a>
+</li>
+        <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VPairHandler.parse_item">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2VPairHandler method)</a>
 </li>
         <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataI2VHandler.parse_item">(lightrft.datasets.rapidata.RapidataI2VHandler method)</a>
 </li>
+        <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataI2VPairHandler.parse_item">(lightrft.datasets.rapidata.RapidataI2VPairHandler method)</a>
+</li>
         <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataT2VHandler.parse_item">(lightrft.datasets.rapidata.RapidataT2VHandler method)</a>
+</li>
+        <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataT2VPairHandler.parse_item">(lightrft.datasets.rapidata.RapidataT2VPairHandler method)</a>
 </li>
         <li><a href="api_doc/datasets/utils.html#lightrft.datasets.utils.BaseDataHandler.parse_item">(lightrft.datasets.utils.BaseDataHandler method)</a>
 </li>
@@ -1912,10 +1930,20 @@
         <li><a href="api_doc/trainer/replay_buffer_utils.html#lightrft.trainer.replay_buffer_utils.BufferItemVL.pixel_values">(lightrft.trainer.replay_buffer_utils.BufferItemVL attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.ExperienceVL.pixel_values_videos">pixel_values_videos (lightrft.trainer.experience_maker_vl.ExperienceVL attribute)</a>
+
+      <ul>
+        <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.pixel_values_videos">(lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
+</li>
+        <li><a href="api_doc/trainer/replay_buffer_utils.html#lightrft.trainer.replay_buffer_utils.BufferItemVL.pixel_values_videos">(lightrft.trainer.replay_buffer_utils.BufferItemVL attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api_doc/strategy/config.html#lightrft.strategy.config.StrategyConfig.plot_every">plot_every (lightrft.strategy.config.StrategyConfig attribute)</a>
 </li>
       <li><a href="api_doc/models/loss.html#lightrft.models.loss.PolicyLoss">PolicyLoss (class in lightrft.models.loss)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/strategy/utils/parallel_utils.html#lightrft.strategy.utils.parallel_utils.SPDataProcessor.postprocess">postprocess() (lightrft.strategy.utils.parallel_utils.SPDataProcessor method)</a>
 </li>
       <li><a href="api_doc/trainer/ppo_trainer.html#lightrft.trainer.ppo_trainer.PPOTrainer.ppo_train">ppo_train() (lightrft.trainer.ppo_trainer.PPOTrainer method)</a>
@@ -1930,8 +1958,6 @@
         <li><a href="api_doc/trainer/spmd_ppo_trainer.html#lightrft.trainer.spmd_ppo_trainer.SPMDPPOTrainerVL.ppo_train">(lightrft.trainer.spmd_ppo_trainer.SPMDPPOTrainerVL method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/trainer/ppo_trainer.html#lightrft.trainer.ppo_trainer.PPOTrainer">PPOTrainer (class in lightrft.trainer.ppo_trainer)</a>
 </li>
       <li><a href="api_doc/trainer/ppo_trainer_vl.html#lightrft.trainer.ppo_trainer_vl.PPOTrainerVL">PPOTrainerVL (class in lightrft.trainer.ppo_trainer_vl)</a>
@@ -2014,7 +2040,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataI2VHandler">RapidataI2VHandler (class in lightrft.datasets.rapidata)</a>
 </li>
+      <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataI2VPairHandler">RapidataI2VPairHandler (class in lightrft.datasets.rapidata)</a>
+</li>
       <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataT2VHandler">RapidataT2VHandler (class in lightrft.datasets.rapidata)</a>
+</li>
+      <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataT2VPairHandler">RapidataT2VPairHandler (class in lightrft.datasets.rapidata)</a>
 </li>
       <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.ExperienceVL.raw_images">raw_images (lightrft.trainer.experience_maker_vl.ExperienceVL attribute)</a>
 
@@ -2040,10 +2070,10 @@
 </li>
       <li><a href="api_doc/trainer/replay_buffer_utils.html#lightrft.trainer.replay_buffer_utils.remove_padding_in_sequences">remove_padding_in_sequences() (in module lightrft.trainer.replay_buffer_utils)</a>
 </li>
-      <li><a href="api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.report_memory">report_memory() (lightrft.strategy.strategy_base.StrategyBase class method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.report_memory">report_memory() (lightrft.strategy.strategy_base.StrategyBase class method)</a>
+</li>
       <li><a href="api_doc/utils/remote_rm_utils.html#lightrft.utils.remote_rm_utils.request_api_wrapper">request_api_wrapper() (in module lightrft.utils.remote_rm_utils)</a>
 </li>
       <li><a href="api_doc/trainer/experience_maker.html#lightrft.trainer.experience_maker.Samples.response_length">response_length (lightrft.trainer.experience_maker.Samples attribute)</a>
@@ -2238,6 +2268,26 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_doc/datasets/hpdv3.html#lightrft.datasets.hpdv3.HPDv3Handler.task_type">task_type (lightrft.datasets.hpdv3.HPDv3Handler attribute)</a>
+
+      <ul>
+        <li><a href="api_doc/datasets/image_reward_db.html#lightrft.datasets.image_reward_db.ImageRewardDBHandler.task_type">(lightrft.datasets.image_reward_db.ImageRewardDBHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/imagegen_cot_reward.html#lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler.task_type">(lightrft.datasets.imagegen_cot_reward.ImageGenCoTRewardGRMHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler.task_type">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler.task_type">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler.task_type">(lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataI2VHandler.task_type">(lightrft.datasets.rapidata.RapidataI2VHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataI2VPairHandler.task_type">(lightrft.datasets.rapidata.RapidataI2VPairHandler attribute)</a>
+</li>
+        <li><a href="api_doc/datasets/rapidata.html#lightrft.datasets.rapidata.RapidataT2VHandler.task_type">(lightrft.datasets.rapidata.RapidataT2VHandler attribute)</a>
+</li>
+      </ul></li>
       <li><a href="api_doc/utils/timer.html#lightrft.utils.timer.Timer">Timer (class in lightrft.utils.timer)</a>
 </li>
       <li><a href="api_doc/trainer/experience_maker.html#lightrft.trainer.experience_maker.to">to() (in module lightrft.trainer.experience_maker)</a>
@@ -2252,6 +2302,8 @@
         <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.ExperienceVL.to_device">(lightrft.trainer.experience_maker_vl.ExperienceVL method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/trainer/experience_maker.html#lightrft.trainer.experience_maker.NaiveExperienceMaker.tokenize_fn">tokenize_fn() (lightrft.trainer.experience_maker.NaiveExperienceMaker method)</a>
 
       <ul>
@@ -2264,8 +2316,6 @@
         <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.total_length">(lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/strategy/config.html#lightrft.strategy.config.StrategyConfig.train_batch_size">train_batch_size (lightrft.strategy.config.StrategyConfig attribute)</a>
 </li>
       <li><a href="api_doc/trainer/ppo_trainer.html#lightrft.trainer.ppo_trainer.PPOTrainer.training_step">training_step() (lightrft.trainer.ppo_trainer.PPOTrainer method)</a>
@@ -2353,6 +2403,16 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_doc/models/loss.html#lightrft.models.loss.VanillaKTOLoss">VanillaKTOLoss (class in lightrft.models.loss)</a>
+</li>
+      <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.ExperienceVL.video_grid_thws">video_grid_thws (lightrft.trainer.experience_maker_vl.ExperienceVL attribute)</a>
+
+      <ul>
+        <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.video_grid_thws">(lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
+</li>
+        <li><a href="api_doc/trainer/replay_buffer_utils.html#lightrft.trainer.replay_buffer_utils.BufferItemVL.video_grid_thws">(lightrft.trainer.replay_buffer_utils.BufferItemVL attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.SamplesVL.video_num">video_num (lightrft.trainer.experience_maker_vl.SamplesVL attribute)</a>
 </li>
   </ul></td>
 </tr></table>

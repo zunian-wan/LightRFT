@@ -1095,30 +1095,78 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported engine type: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_engine_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="StrategyBase._build_multimodal_inputs"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase._build_multimodal_inputs">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_build_multimodal_inputs</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">all_prompts</span><span class="p">,</span> <span class="n">all_images</span><span class="p">,</span> <span class="n">images_num</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_multimodal_inputs</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">all_prompts</span><span class="p">,</span> <span class="n">all_images</span><span class="p">,</span> <span class="n">images_num</span><span class="p">,</span> <span class="n">all_videos</span><span class="p">,</span> <span class="n">videos_num</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        In this function, we build multimodal inputs for inference engine.</span>
+<span class="sd">        Build multimodal inputs for inference engine (vLLM/SGLang).</span>
+
+<span class="sd">        This function supports two input formats for images and videos to accommodate</span>
+<span class="sd">        different data preprocessing approaches:</span>
+
+<span class="sd">        Format 1 - Nested List (multi-image/video per prompt already grouped):</span>
+<span class="sd">            all_images = [[img1_a, img1_b], [img2_a], [img3_a, img3_b, img3_c]]</span>
+<span class="sd">            images_num = [2, 1, 3]</span>
+<span class="sd">            -&gt; all_images[i] is directly used as the image list for prompt i</span>
+
+<span class="sd">        Format 2 - Flattened List (all images/videos in a single flat list):</span>
+<span class="sd">            all_images = [img1_a, img1_b, img2_a, img3_a, img3_b, img3_c]</span>
+<span class="sd">            images_num = [2, 1, 3]</span>
+<span class="sd">            -&gt; images are sliced based on images_num: [0:2], [2:3], [3:6]</span>
+
+<span class="sd">        :param all_prompts: List of text prompts</span>
+<span class="sd">        :param all_images: Images in nested or flattened format, or None</span>
+<span class="sd">        :param images_num: Number of images per prompt</span>
+<span class="sd">        :param all_videos: Videos in nested or flattened format, or None</span>
+<span class="sd">        :param videos_num: Number of videos per prompt</span>
+<span class="sd">        :return: List of dicts with &#39;prompt&#39; and optional &#39;multi_modal_data&#39; keys</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">img_start_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">vid_start_idx</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">prompt</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_prompts</span><span class="p">):</span>
-            <span class="n">img_num</span> <span class="o">=</span> <span class="n">images_num</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">img_list</span> <span class="o">=</span> <span class="n">all_images</span><span class="p">[</span><span class="n">img_start_idx</span><span class="p">:</span><span class="n">img_start_idx</span> <span class="o">+</span> <span class="n">img_num</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">img_list</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">img_list</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">img_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">img_num</span> <span class="o">=</span> <span class="n">images_num</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">images_num</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+            <span class="n">vid_num</span> <span class="o">=</span> <span class="n">videos_num</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">videos_num</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+
+            <span class="c1"># Support two input formats:</span>
+            <span class="c1"># 1. Nested list: all_images[i] is already a list of images for this prompt</span>
+            <span class="c1"># 2. Flattened list: all_images is a flat list, slice by img_num</span>
+            <span class="k">if</span> <span class="n">all_images</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_images</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">all_images</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_images</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="n">img_num</span><span class="p">:</span>
+                    <span class="n">img_list</span> <span class="o">=</span> <span class="n">all_images</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">img_list</span> <span class="o">=</span> <span class="n">all_images</span><span class="p">[</span><span class="n">img_start_idx</span><span class="p">:</span><span class="n">img_start_idx</span> <span class="o">+</span> <span class="n">img_num</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">img_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="c1"># Same logic for videos</span>
+            <span class="k">if</span> <span class="n">all_videos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_videos</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">all_videos</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_videos</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">==</span> <span class="n">vid_num</span><span class="p">:</span>
+                    <span class="n">vid_list</span> <span class="o">=</span> <span class="n">all_videos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">vid_list</span> <span class="o">=</span> <span class="n">all_videos</span><span class="p">[</span><span class="n">vid_start_idx</span><span class="p">:</span><span class="n">vid_start_idx</span> <span class="o">+</span> <span class="n">vid_num</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vid_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="n">multi_modal_data</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">img_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">img_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">multi_modal_data</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_list</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vid_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">vid_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">multi_modal_data</span><span class="p">[</span><span class="s2">&quot;video&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vid_list</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">multi_modal_data</span><span class="p">:</span>
                 <span class="c1"># remove the vision start and end tokens for data after apply chat template.</span>
                 <span class="c1"># Use regex to handle multiple &lt;|image_pad|&gt; tokens (e.g., for high-res images)</span>
                 <span class="n">prompt</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;&lt;\|vision_start\|&gt;(&lt;\|image_pad\|&gt;)+&lt;\|vision_end\|&gt;&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">prompt</span><span class="p">)</span>
+                <span class="n">prompt</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;&lt;\|vision_start\|&gt;(&lt;\|video_pad\|&gt;)+&lt;\|vision_end\|&gt;&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">prompt</span><span class="p">)</span>
                 <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
                     <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
                 <span class="p">})</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">inputs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
                     <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
-                    <span class="s2">&quot;multi_modal_data&quot;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">img_list</span>
-                    <span class="p">},</span>
+                    <span class="s2">&quot;multi_modal_data&quot;</span><span class="p">:</span> <span class="n">multi_modal_data</span><span class="p">,</span>
                 <span class="p">})</span>
             <span class="n">img_start_idx</span> <span class="o">+=</span> <span class="n">img_num</span>
+            <span class="n">vid_start_idx</span> <span class="o">+=</span> <span class="n">vid_num</span>
         <span class="k">return</span> <span class="n">inputs</span></div>
 
 <div class="viewcode-block" id="StrategyBase.gather_and_generate"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.gather_and_generate">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">gather_and_generate</span><span class="p">(</span>
@@ -1129,26 +1177,59 @@
         <span class="n">all_images</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">sleep_engine</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">images_num</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">all_videos</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">videos_num</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        1. Gather prompts within a vllm tp_group and do generation together.</span>
-<span class="sd">        2. split the generated outputs and return to each rank.</span>
-<span class="sd">        3. conditinally sleep inference engine.</span>
+<span class="sd">        Gather prompts across distributed ranks and perform text/multimodal generation.</span>
 
-<span class="sd">        In multi-modal case, the input for inference engine could be very different:</span>
-<span class="sd">        1. one prompt = one text + one image</span>
-<span class="sd">        2. one prompt = one text + multi image</span>
+<span class="sd">        This method coordinates distributed generation by:</span>
+<span class="sd">        1. Gathering prompts from all ranks within a vLLM tensor parallel group</span>
+<span class="sd">        2. Performing batched generation using the inference engine</span>
+<span class="sd">        3. Splitting generated outputs and returning each rank&#39;s portion</span>
+<span class="sd">        4. Optionally putting the inference engine to sleep to conserve memory</span>
 
+<span class="sd">        For multimodal inputs, supports flexible input formats:</span>
+<span class="sd">        - One prompt with one image</span>
+<span class="sd">        - One prompt with multiple images</span>
+<span class="sd">        - One prompt with video(s) only (no images)</span>
+<span class="sd">        - One prompt with one or more videos</span>
+<span class="sd">        - Mixed image and video inputs</span>
+
+<span class="sd">        :param sampling_params: Parameters controlling generation (e.g., temperature, top_k, max_tokens)</span>
+<span class="sd">        :type sampling_params: Any</span>
+<span class="sd">        :param all_prompt_token_ids: Token IDs for text-only prompts, defaults to None</span>
+<span class="sd">        :type all_prompt_token_ids: Optional[List[List[int]]]</span>
+<span class="sd">        :param all_prompts: Raw text prompts for multimodal generation, defaults to None</span>
+<span class="sd">        :type all_prompts: Optional[List[str]]</span>
+<span class="sd">        :param all_images: Images corresponding to prompts for VLM generation, defaults to None</span>
+<span class="sd">        :type all_images: Optional[List]</span>
+<span class="sd">        :param sleep_engine: Whether to sleep the inference engine after generation, defaults to True</span>
+<span class="sd">        :type sleep_engine: bool</span>
+<span class="sd">        :param images_num: Number of images per prompt (for multi-image scenarios), defaults to None</span>
+<span class="sd">        :type images_num: Optional[List[int]]</span>
+<span class="sd">        :param all_videos: Videos corresponding to prompts for video generation, defaults to None</span>
+<span class="sd">        :type all_videos: Optional[List]</span>
+<span class="sd">        :param videos_num: Number of videos per prompt, defaults to None</span>
+<span class="sd">        :type videos_num: Optional[List[int]]</span>
+
+<span class="sd">        :return: List of generation outputs for the current rank, each containing prompt_token_ids and output_token_ids</span>
+<span class="sd">        :rtype: List[EasyDict]</span>
+<span class="sd">        :raises NotImplementedError: If inference engine is not initialized</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Inference engine is not initialized.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">wakeup_inference_engine</span><span class="p">()</span>
 
-        <span class="n">is_multimodal</span> <span class="o">=</span> <span class="n">all_images</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">is_multimodal</span> <span class="o">=</span> <span class="n">all_images</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">all_videos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">is_multimodal</span><span class="p">:</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_multimodal_inputs</span><span class="p">(</span>
-                <span class="n">all_prompts</span><span class="o">=</span><span class="n">all_prompts</span><span class="p">,</span> <span class="n">all_images</span><span class="o">=</span><span class="n">all_images</span><span class="p">,</span> <span class="n">images_num</span><span class="o">=</span><span class="n">images_num</span>
+                <span class="n">all_prompts</span><span class="o">=</span><span class="n">all_prompts</span><span class="p">,</span>
+                <span class="n">all_images</span><span class="o">=</span><span class="n">all_images</span><span class="p">,</span>
+                <span class="n">images_num</span><span class="o">=</span><span class="n">images_num</span><span class="p">,</span>
+                <span class="n">all_videos</span><span class="o">=</span><span class="n">all_videos</span><span class="p">,</span>
+                <span class="n">videos_num</span><span class="o">=</span><span class="n">videos_num</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="n">all_prompt_token_ids</span>

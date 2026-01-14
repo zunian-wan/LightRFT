@@ -360,6 +360,8 @@
 <span class="sd">        - pixel_values: (B * h, w) - image pixels processed by HF processor</span>
 <span class="sd">        - image_grid_thws: (B, 3) - image grid thw</span>
 <span class="sd">        - raw_images: Optional[List[Image.Image]] - raw images before processing</span>
+<span class="sd">        - pixel_values_videos: (B * f, c * h * w) - video pixels processed by HF processor</span>
+<span class="sd">        - video_grid_thws: (B, 3) - video grid thw</span>
 <span class="sd">        - action_log_probs: (B, A) where A is number of actions</span>
 <span class="sd">        - base_action_log_probs: (B, A)</span>
 <span class="sd">        - values: (B, A)</span>
@@ -375,8 +377,12 @@
 <span class="sd">    :type pixel_values: Optional[torch.Tensor]</span>
 <span class="sd">    :param image_grid_thws: Image grid thw, defaults to None.</span>
 <span class="sd">    :type image_grid_thws: Optional[torch.Tensor]</span>
-<span class="sd">    :param raw_images: Raw images before processing, defaults to None.</span>
+<span class="sd">    :param raw_images: Raw image data list, defaults to None.</span>
 <span class="sd">    :type raw_images: Optional[List[Image.Image]]</span>
+<span class="sd">    :param pixel_values_videos: Video pixel values processed by HF processor, defaults to None.</span>
+<span class="sd">    :type pixel_values_videos: Optional[torch.Tensor]</span>
+<span class="sd">    :param video_grid_thws: Video grid thw, defaults to None.</span>
+<span class="sd">    :type video_grid_thws: Optional[torch.Tensor]</span>
 <span class="sd">    :param action_log_probs: Log probabilities of actions from the current policy, defaults to None.</span>
 <span class="sd">    :type action_log_probs: torch.Tensor</span>
 <span class="sd">    :param base_action_log_probs: Log probabilities from the reference policy, defaults to None.</span>
@@ -399,9 +405,13 @@
 
     <span class="n">sequences</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="c1"># Image processing related</span>
-    <span class="n">pixel_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># image pixel processed by HF processor</span>
-    <span class="n">image_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># image grid thw</span>
-    <span class="n">raw_images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># raw images before processing</span>
+    <span class="n">pixel_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">image_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">raw_images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Video processing related</span>
+    <span class="n">pixel_values_videos</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">video_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="n">action_log_probs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">base_action_log_probs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span>
@@ -432,6 +442,10 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">pixel_values</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pixel_values</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image_grid_thws</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_values_videos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pixel_values_videos</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pixel_values_videos</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">video_grid_thws</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attention_mask</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attention_mask</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action_mask</span> <span class="o">=</span> <span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action_mask</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
@@ -455,6 +469,10 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">pixel_values</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pixel_values</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image_grid_thws</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_values_videos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pixel_values_videos</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pixel_values_videos</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">video_grid_thws</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">attention_mask</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attention_mask</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action_mask</span> <span class="o">=</span> <span class="n">pin_memory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action_mask</span><span class="p">)</span>
@@ -479,6 +497,8 @@
 <span class="sd">        - pixel_values: Optional[torch.Tensor] - image pixels processed by HF processor</span>
 <span class="sd">        - image_grid_thws: Optional[torch.Tensor] - image grid thw</span>
 <span class="sd">        - raw_images: Optional[List[Image.Image]] - raw image data list</span>
+<span class="sd">        - pixel_values_videos: Optional[torch.Tensor] - video pixels processed by HF processor</span>
+<span class="sd">        - video_grid_thws: Optional[torch.Tensor] - video grid thw</span>
 <span class="sd">        - num_actions: int or (B,) - number of actions (tokens) in the response</span>
 <span class="sd">        - packed_seq_lens: None or (B,) - length of each sample in packed format</span>
 <span class="sd">        - response_length: (B,) - number of tokens in the response</span>
@@ -487,7 +507,8 @@
 <span class="sd">        - references: Optional[List[str]] - reference texts</span>
 <span class="sd">        - labels: Optional[List[str]] - ground truth labels</span>
 <span class="sd">        - output_texts: list[str] - generated output texts</span>
-<span class="sd">        - img_num: Optional[List[str]] - image numbers</span>
+<span class="sd">        - image_num: Optional[List[int]] - image numbers</span>
+<span class="sd">        - video_num: Optional[List[int]] - video numbers</span>
 
 <span class="sd">    :param sequences: Token sequences including both prompt and response.</span>
 <span class="sd">    :type sequences: torch.Tensor</span>
@@ -517,17 +538,24 @@
 <span class="sd">    :type prompts: list[str]</span>
 <span class="sd">    :param output_texts: Generated output texts, defaults to None.</span>
 <span class="sd">    :type output_texts: list[str]</span>
-<span class="sd">    :param img_num: Image numbers, defaults to None.</span>
-<span class="sd">    :type img_num: Optional[List[str]]</span>
+<span class="sd">    :param image_num: Image numbers, defaults to None.</span>
+<span class="sd">    :type image_num: Optional[List[int]]</span>
+<span class="sd">    :param video_num: Video numbers, defaults to None.</span>
+<span class="sd">    :type video_num: Optional[List[int]]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">sequences</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="n">attention_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">action_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">BoolTensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">pixel_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># image pixel processed by HF processor</span>
-    <span class="n">image_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># image grid thw</span>
-    <span class="n">raw_images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># raw image data list</span>
+    <span class="n">pixel_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">image_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">raw_images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">image_num</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">pixel_values_videos</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">video_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">video_num</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="n">num_actions</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">packed_seq_lens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -538,8 +566,7 @@
     <span class="n">labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">prompts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">output_texts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">img_num</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span></div>
+    <span class="n">output_texts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="NaiveExperienceMakerVL"><a class="viewcode-back" href="../../../api_doc/trainer/experience_maker_vl.html#lightrft.trainer.experience_maker_vl.NaiveExperienceMakerVL">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">NaiveExperienceMakerVL</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>

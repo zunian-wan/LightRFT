@@ -346,12 +346,18 @@
 
 <span class="sd">    Note:</span>
 <span class="sd">        The construction of tensor-parallel (TP) group is implemented in the strategy part.</span>
-<span class="sd">        Multimodal image limits are automatically configured when applicable.</span>
+<span class="sd">        Multimodal image and video limits are automatically configured when applicable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s2">&quot;limit_mm_image_per_prompt&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">text_only</span><span class="p">:</span>
-        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;limit_mm_per_prompt&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">limit_mm_image_per_prompt</span><span class="p">}}</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">text_only</span><span class="p">:</span>
+        <span class="n">limit_mm_per_prompt</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s2">&quot;limit_mm_image_per_prompt&quot;</span><span class="p">):</span>
+            <span class="n">limit_mm_per_prompt</span><span class="p">[</span><span class="s2">&quot;image&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">limit_mm_image_per_prompt</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s2">&quot;limit_mm_video_per_prompt&quot;</span><span class="p">):</span>
+            <span class="n">limit_mm_per_prompt</span><span class="p">[</span><span class="s2">&quot;video&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">limit_mm_video_per_prompt</span>
+
+        <span class="k">if</span> <span class="n">limit_mm_per_prompt</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;limit_mm_per_prompt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">limit_mm_per_prompt</span>
 
     <span class="n">vllm_engine</span> <span class="o">=</span> <span class="n">get_vllm_engine</span><span class="p">(</span>
         <span class="n">args</span><span class="o">.</span><span class="n">pretrain</span><span class="p">,</span>

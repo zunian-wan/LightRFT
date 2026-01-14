@@ -377,6 +377,8 @@
 
     <span class="n">pixel_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># image pixel processed by HF processor</span>
     <span class="n">image_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># image grid thw</span>
+    <span class="n">pixel_values_videos</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># video pixel processed by HF processor</span>
+    <span class="n">video_grid_thws</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># video grid thw</span>
     <span class="n">raw_images</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Image</span><span class="o">.</span><span class="n">Image</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># raw images before processing</span>
 
     <span class="n">action_log_probs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="kc">None</span>
@@ -524,36 +526,50 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Split a batch of vision-language experiences into individual items.</span>
 
-<span class="sd">    This function processes a batch of vision-language experiences and splits them</span>
-<span class="sd">    into individual BufferItemVL objects. It handles both text and vision data</span>
-<span class="sd">    including pixel values, image grids, and additional vision-specific attributes.</span>
+<span class="sd">    This function handles the complex logic of de-stacking vision-language data.</span>
+<span class="sd">    Unlike text-only data, vision components (images/videos) are often flattened</span>
+<span class="sd">    into a single continuous tensor for efficiency during rollout. This function</span>
+<span class="sd">    uses metadata in `experience.info` (`image_num` and `video_num`) to correctly</span>
+<span class="sd">    slice these flattened tensors back into their per-sample components.</span>
+
+<span class="sd">    Splitting Logic:</span>
+<span class="sd">    1. Standard Tensors: `sequences`, `values`, etc. are split using `torch.unbind`.</span>
+<span class="sd">    2. Grid Metadata: `image_grid_thws` (N, 3) is sliced based on `experience.info[&quot;image_num&quot;]`.</span>
+<span class="sd">       For example, if `image_num` is [2, 1], the first sample gets the first 2 rows of grids.</span>
+<span class="sd">    3. Pixel Values: `pixel_values` (Total_Patches, patches) is sliced based on the sum</span>
+<span class="sd">       of tokens calculated from the sample&#39;s corresponding `image_grid_thws`.</span>
 
 <span class="sd">    :param experience: Batch of vision-language experiences to split</span>
 <span class="sd">    :type experience: ExperienceVL</span>
 <span class="sd">    :return: List of individual BufferItemVL objects</span>
 <span class="sd">    :rtype: List</span>
-<span class="sd">    :raises AssertionError: If batch size consistency check fails</span>
 
 <span class="sd">    Example::</span>
 
-<span class="sd">        # Create a batch of vision-language experiences</span>
+<span class="sd">        # Multi-image scenario: Batch size 2</span>
+<span class="sd">        # Sample 0 has 2 images, Sample 1 has 1 image.</span>
+<span class="sd">        # Total 3 images in image_grid_thws</span>
 <span class="sd">        batch_exp = ExperienceVL(</span>
-<span class="sd">            sequences=torch.tensor([[1,2,3],[4,5,6]]),</span>
-<span class="sd">            pixel_values=torch.randn(2, 3, 224, 224),</span>
-<span class="sd">            image_grid_thws=torch.tensor([[1,1,1],[1,1,1]]),</span>
-<span class="sd">            # ... other attributes</span>
+<span class="sd">            sequences=torch.zeros(2, 10),</span>
+<span class="sd">            image_grid_thws=torch.tensor([[1, 10, 10], [1, 20, 20], [1, 15, 15]]),</span>
+<span class="sd">            pixel_values=torch.randn(100+400+225, 1152), # flattened patches</span>
+<span class="sd">            info={</span>
+<span class="sd">                &quot;image_num&quot;: torch.tensor([2, 1], dtype=torch.float32)</span>
+<span class="sd">            }</span>
 <span class="sd">        )</span>
 
-<span class="sd">        # Split into individual items</span>
 <span class="sd">        items = _split_experience_batch_vl(batch_exp)</span>
-<span class="sd">        print(f&quot;Split {len(items)} vision-language items from batch&quot;)</span>
+<span class="sd">        # items[0].image_grid_thws: Shape [2, 3] (First two rows)</span>
+<span class="sd">        # items[0].pixel_values: Shape [10*10 + 20*20, 1152]</span>
+<span class="sd">        # items[1].image_grid_thws: Shape [1, 3] (Last row)</span>
+<span class="sd">        # items[1].pixel_values: Shape [15*15, 1152]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">experience</span><span class="o">.</span><span class="n">sequences</span><span class="p">)</span>
     <span class="n">batch_kwargs</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">batch_size</span><span class="p">)]</span>
+    <span class="c1"># First, split standard tensors that always match batch_size</span>
     <span class="n">keys</span> <span class="o">=</span> <span class="p">(</span>
         <span class="s2">&quot;sequences&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;image_grid_thws&quot;</span><span class="p">,</span>  <span class="c1"># 3</span>
         <span class="s2">&quot;action_log_probs&quot;</span><span class="p">,</span>
         <span class="s2">&quot;base_action_log_probs&quot;</span><span class="p">,</span>
         <span class="s2">&quot;values&quot;</span><span class="p">,</span>
@@ -571,9 +587,50 @@
         <span class="n">vals</span> <span class="o">=</span> <span class="n">value</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
             <span class="n">vals</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="n">batch_size</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">batch_size</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;Key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> size mismatch: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">batch_size</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">vals</span><span class="p">):</span>
             <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="c1"># Split image_grid_thws and video_grid_thws accurately using metadata</span>
+    <span class="k">for</span> <span class="n">grid_key</span><span class="p">,</span> <span class="n">num_key</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">,</span> <span class="s2">&quot;image_num&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;video_grid_thws&quot;</span><span class="p">,</span> <span class="s2">&quot;video_num&quot;</span><span class="p">)]:</span>
+        <span class="n">grid_data</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">experience</span><span class="p">,</span> <span class="n">grid_key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">grid_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># If it&#39;s already a list, it was pre-split by _process_multi_image_video_thws in FastExperienceMaker</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid_data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">batch_size</span><span class="p">):</span>
+                    <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Try to get number of components per sample from info</span>
+            <span class="n">nums</span> <span class="o">=</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">num_key</span><span class="p">)</span> <span class="k">if</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">nums</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nums</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                    <span class="n">nums</span> <span class="o">=</span> <span class="n">nums</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+                <span class="n">curr_idx</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nums</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid_data</span><span class="p">[</span><span class="n">curr_idx</span><span class="p">:</span><span class="n">curr_idx</span> <span class="o">+</span> <span class="n">n</span><span class="p">]</span>
+                        <span class="n">curr_idx</span> <span class="o">+=</span> <span class="n">n</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Fallback for simple case: 1-to-1 mapping</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid_data</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="n">grid_data</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">batch_size</span><span class="p">:</span>
+                    <span class="n">vals</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="n">grid_data</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">vals</span><span class="p">):</span>
+                        <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid_data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">grid_data</span><span class="p">):</span>
+                        <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Ambiguous </span><span class="si">{</span><span class="n">grid_key</span><span class="si">}</span><span class="s2"> split: Total </span><span class="si">{</span><span class="n">grid_data</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2"> vs Batch </span><span class="si">{</span><span class="n">batch_size</span><span class="si">}</span><span class="s2">. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Missing &#39;</span><span class="si">{</span><span class="n">num_key</span><span class="si">}</span><span class="s2">&#39; in info.&quot;</span>
+                    <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">batch_size</span><span class="p">):</span>
+                <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">grid_key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="c1"># Split image data</span>
     <span class="k">if</span> <span class="n">experience</span><span class="o">.</span><span class="n">pixel_values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -581,10 +638,31 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pixel_values</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
             <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batch_kwargs</span><span class="p">)):</span>
-                <span class="n">num_images</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span>
-                                        <span class="p">)</span> <span class="k">if</span> <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
-                <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;pixel_values&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pixel_values</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="n">num_images</span><span class="p">]</span>
-                <span class="n">index</span> <span class="o">+=</span> <span class="n">num_images</span>
+                <span class="k">if</span> <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">grid</span> <span class="o">=</span> <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span>
+                    <span class="c1"># grid is already [N, 3] for this sample</span>
+                    <span class="n">num_image_tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">num_image_tokens</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="c1"># Slice from the flattened pixel_values</span>
+                <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;pixel_values&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pixel_values</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="n">num_image_tokens</span><span class="p">]</span>
+                <span class="n">index</span> <span class="o">+=</span> <span class="n">num_image_tokens</span>
+
+    <span class="c1"># Split video data</span>
+    <span class="k">if</span> <span class="n">experience</span><span class="o">.</span><span class="n">pixel_values_videos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pixel_values_videos</span> <span class="o">=</span> <span class="n">experience</span><span class="o">.</span><span class="n">pixel_values_videos</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pixel_values_videos</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batch_kwargs</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;video_grid_thws&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">grid</span> <span class="o">=</span> <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;video_grid_thws&quot;</span><span class="p">]</span>
+                    <span class="n">num_video_tokens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">num_video_tokens</span> <span class="o">=</span> <span class="mi">0</span>
+
+                <span class="n">batch_kwargs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;pixel_values_videos&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pixel_values_videos</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="n">num_video_tokens</span><span class="p">]</span>
+                <span class="n">index</span> <span class="o">+=</span> <span class="n">num_video_tokens</span>
 
     <span class="c1"># Split raw images</span>
     <span class="k">if</span> <span class="n">experience</span><span class="o">.</span><span class="n">raw_images</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -774,10 +852,10 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a batch of vision-language experiences from individual items.</span>
 
-<span class="sd">    This function aggregates individual vision-language experience items into a batched</span>
-<span class="sd">    ExperienceVL object. It handles both text and vision data, including pixel values,</span>
-<span class="sd">    image grids, and other vision-specific attributes. For text sequences, it applies</span>
-<span class="sd">    padding for unpacked samples to ensure consistent tensor shapes.</span>
+<span class="sd">    This function aggregates individual `BufferItemVL` objects into a single `ExperienceVL`</span>
+<span class="sd">    batch. It concatenates visual data (pixels and grids) into flattened tensors</span>
+<span class="sd">    and automatically records the count per sample (`image_num`, `video_num`) in</span>
+<span class="sd">    the `info` dictionary to enable later splitting.</span>
 
 <span class="sd">    :param items: List of individual vision-language experience items</span>
 <span class="sd">    :type items: List</span>
@@ -788,23 +866,21 @@
 
 <span class="sd">    Example::</span>
 
-<span class="sd">        vl_items = [</span>
-<span class="sd">            BufferItemVL(</span>
-<span class="sd">                sequences=torch.tensor([1,2,3]),</span>
-<span class="sd">                pixel_values=torch.randn(1, 3, 224, 224),</span>
-<span class="sd">                image_grid_thws=torch.tensor([1,1,1]),</span>
-<span class="sd">                ...</span>
-<span class="sd">            ),</span>
-<span class="sd">            BufferItemVL(</span>
-<span class="sd">                sequences=torch.tensor([4,5,6,7]),</span>
-<span class="sd">                pixel_values=torch.randn(1, 3, 224, 224),</span>
-<span class="sd">                image_grid_thws=torch.tensor([1,1,1]),</span>
-<span class="sd">                ...</span>
-<span class="sd">            )</span>
-<span class="sd">        ]</span>
+<span class="sd">        # Create a batch from two items</span>
+<span class="sd">        item1 = BufferItemVL(</span>
+<span class="sd">            sequences=torch.zeros(5),</span>
+<span class="sd">            image_grid_thws=torch.tensor([[1, 5, 5], [1, 8, 8]]), # 2 images</span>
+<span class="sd">            pixel_values=torch.randn(25+64, 1152)</span>
+<span class="sd">        )</span>
+<span class="sd">        item2 = BufferItemVL(</span>
+<span class="sd">            sequences=torch.zeros(8),</span>
+<span class="sd">            image_grid_thws=torch.tensor([[1, 10, 10]]), # 1 image</span>
+<span class="sd">            pixel_values=torch.randn(100, 1152)</span>
+<span class="sd">        )</span>
 
-<span class="sd">        # Create batched vision-language experience</span>
-<span class="sd">        batch_vl_exp = _make_experience_batch_vl(vl_items, packing_samples=False)</span>
+<span class="sd">        batch = _make_experience_batch_vl([item1, item2])</span>
+<span class="sd">        # batch.image_grid_thws: Shape [3, 3] (2 + 1 rows concatenated)</span>
+<span class="sd">        # batch.info[&quot;image_num&quot;]: tensor([2., 1.], dtype=float32)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">keys</span> <span class="o">=</span> <span class="p">(</span>
@@ -831,14 +907,57 @@
     <span class="p">]</span>
     <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;pixel_values&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">pixel_values_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">pixel_values_list</span> <span class="k">else</span> <span class="kc">None</span>
 
-    <span class="n">image_grid_thws_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span>
-    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">image_grid_thws_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
-                                            <span class="p">)</span> <span class="k">if</span> <span class="n">image_grid_thws_list</span> <span class="ow">and</span> <span class="n">image_grid_thws_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">image_grid_thws_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span>
+        <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="k">else</span> <span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">image_grid_thws_list</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">image_grid_thws_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;image_grid_thws&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Video data processing</span>
+    <span class="n">pixel_values_videos_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">item</span><span class="o">.</span><span class="n">pixel_values_videos</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">pixel_values_videos</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">pixel_values_videos</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="p">]</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;pixel_values_videos&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">pixel_values_videos_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">pixel_values_videos_list</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="n">video_grid_thws_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span>
+        <span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="k">else</span> <span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">video_grid_thws_list</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;video_grid_thws&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">video_grid_thws_list</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;video_grid_thws&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="n">raw_images_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">raw_images</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span>
     <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;raw_images&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw_images_list</span> <span class="k">if</span> <span class="n">raw_images_list</span> <span class="ow">and</span> <span class="n">raw_images_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
 
+    <span class="c1"># Record the number of components (images/videos) per sample into info dictionary.</span>
+    <span class="c1"># This ensures accuracy when splitting the batch back into individual items.</span>
     <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;info&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">image_nums</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">video_nums</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="c1"># Determine number of image components</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">image_nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">image_grid_thws</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">image_nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Determine number of video components</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">video_nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">video_grid_thws</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">video_nums</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="n">items</span> <span class="ow">and</span> <span class="n">items</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">info</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">items</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">item</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">]</span>

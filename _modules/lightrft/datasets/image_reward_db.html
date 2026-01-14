@@ -320,8 +320,11 @@
 <span class="sd">    Paper: https://arxiv.org/abs/2304.05977</span>
 <span class="sd">    Dataset Repo: https://huggingface.co/datasets/zai-org/ImageRewardDB</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">task_type</span> <span class="o">=</span> <span class="s2">&quot;text-to-image&quot;</span>
+
 <div class="viewcode-block" id="ImageRewardDBHandler.load_data"><a class="viewcode-back" href="../../../api_doc/datasets/image_reward_db.html#lightrft.datasets.image_reward_db.ImageRewardDBHandler.load_data">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load ImageRewardDB shards and build preference pairs.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load ImageRewardDB shards and build preference pairs.</span>
 
 <span class="sd">        This method scans the given dataset root for ImageRewardDB JSON shards and</span>
 <span class="sd">        aggregates image entries by ``prompt_id``. For each prompt group, it</span>
@@ -333,16 +336,12 @@
 
 <span class="sd">        :return: List of preference pair dictionaries.</span>
 <span class="sd">        :rtype: List[Dict[str, Any]]</span>
-<span class="sd">            - ``prompt_id`` (str): Unique identifier for the prompt group.</span>
-<span class="sd">            - ``prompt`` (str): The text prompt used to generate images.</span>
-<span class="sd">            - ``classification`` (str): Optional category label; ``&quot;Unknown&quot;`` if missing.</span>
-<span class="sd">            - ``data_root`` (str): Echo of the provided ``path`` for later path resolution.</span>
-<span class="sd">            - ``chosen_img`` (str): Relative path of the preferred image.</span>
-<span class="sd">            - ``rank_chosen`` (int): Rank of the preferred image.</span>
-<span class="sd">            - ``overall_rating_chosen`` (Optional[float|int]): Optional quality score of the preferred image.</span>
-<span class="sd">            - ``rejected_img`` (str): Relative path of the non-preferred image.</span>
-<span class="sd">            - ``rank_rejected`` (int): Rank of the non-preferred image.</span>
-<span class="sd">            - ``overall_rating_rejected`` (Optional[float|int]): Optional quality score of the non-preferred image.</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            data = handler.load_data(&quot;path/to/ImageRewardDB&quot;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Locate all JSON shard files</span>
@@ -438,10 +437,17 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Extract path info for chosen and rejected images.</span>
 
-<span class="sd">        :param item: Data item containing image paths.</span>
+<span class="sd">        :param item: A data item from load_data</span>
 <span class="sd">        :type item: Dict[str, Any]</span>
-<span class="sd">        :return: Dictionary with &#39;preferred_image&#39; and &#39;rejected_image&#39; keys, or None if files don&#39;t exist.</span>
-<span class="sd">        :rtype: Optional[Dict[str, Dict[str, str]]]</span>
+
+<span class="sd">        :return: Dict containing local paths for &#39;preferred_image&#39; and &#39;rejected_image&#39;</span>
+<span class="sd">        :rtype: Dict[str, Dict[str, str]]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            info = handler.get_media_info(item)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data_root</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;data_root&#39;</span><span class="p">]</span>
 
@@ -471,11 +477,17 @@
 <span class="sd">        :type item: Dict[str, Any]</span>
 <span class="sd">        :param media_content: Loaded media content with &#39;preferred_image&#39; and &#39;rejected_image&#39; keys.</span>
 <span class="sd">        :type media_content: Dict[str, Any]</span>
-<span class="sd">        :param config: Configuration dict with task_instruction template.</span>
+<span class="sd">        :param config: Configuration dict with task instructions and max_pixels</span>
 <span class="sd">        :type config: Dict[str, Any]</span>
-<span class="sd">        :return: Tuple of (messages0, messages1, other_info).</span>
+
+<span class="sd">        :return: A tuple of (messages0, messages1, metadata)</span>
 <span class="sd">        :rtype: Tuple[List[Dict], List[Dict], Dict]</span>
-<span class="sd">        :raises ValueError: If required content is missing.</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            msg0, msg1, other = handler.parse_item(item, media_content, config)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Get loaded visual content</span>
         <span class="n">preferred_image</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;preferred_image&#39;</span><span class="p">]</span>
@@ -493,6 +505,9 @@
         <span class="n">task_instruction_template</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;task_instruction&quot;</span><span class="p">]</span>
         <span class="n">task_instruction</span> <span class="o">=</span> <span class="n">task_instruction_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">prompt_text</span><span class="p">)</span>
 
+        <span class="c1"># Get max_pixels from config</span>
+        <span class="n">max_pixels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;max_pixels&quot;</span><span class="p">]</span>
+
         <span class="c1"># Random pick from &quot;A&quot; or &quot;B&quot; to avoid positional bias</span>
         <span class="n">preference</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">])</span>
         <span class="k">if</span> <span class="n">preference</span> <span class="o">==</span> <span class="s2">&quot;A&quot;</span><span class="p">:</span>  <span class="c1"># &quot;A&quot; means image0 is preferred</span>
@@ -501,17 +516,21 @@
             <span class="n">image0</span><span class="p">,</span> <span class="n">image1</span> <span class="o">=</span> <span class="n">rejected_image</span><span class="p">,</span> <span class="n">preferred_image</span>
 
         <span class="c1"># Build messages</span>
-        <span class="n">messages0</span> <span class="o">=</span> <span class="p">[{</span>
-            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">task_instruction</span><span class="p">)</span>
-        <span class="p">},</span> <span class="p">{</span>
-            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
-                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image0</span><span class="p">,</span>
-                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">1280</span> <span class="o">*</span> <span class="mi">720</span>
-            <span class="p">}]</span>
-        <span class="p">}]</span>
+        <span class="n">messages0</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">task_instruction</span><span class="p">)</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image0</span><span class="p">,</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
+                <span class="p">}</span>  <span class="c1"># to save memory</span>
+                            <span class="p">]</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
 
         <span class="n">messages1</span> <span class="o">=</span> <span class="p">[{</span>
             <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span>
@@ -521,12 +540,13 @@
             <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
                 <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image1</span><span class="p">,</span>
-                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">1280</span> <span class="o">*</span> <span class="mi">720</span>
+                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
             <span class="p">}]</span>
         <span class="p">}]</span>
 
         <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">preference</span><span class="p">,</span>  <span class="c1"># used for reward head labeling</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
             <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;source&quot;</span><span class="p">],</span>
             <span class="s2">&quot;prompt_id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;prompt_id&quot;</span><span class="p">],</span>
             <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="n">prompt_text</span><span class="p">,</span>

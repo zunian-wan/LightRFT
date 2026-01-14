@@ -490,6 +490,29 @@
     <span class="k">return</span> <span class="n">loaded_content</span></div>
 
 
+<div class="viewcode-block" id="get_task_instructions"><a class="viewcode-back" href="../../../api_doc/datasets/utils.html#lightrft.datasets.utils.get_task_instructions">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_task_instructions</span><span class="p">(</span><span class="n">handler</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Select task instruction based on task type from handler and config.</span>
+
+<span class="sd">    :param handler: Data handler instance.</span>
+<span class="sd">    :param config: Configuration dictionary which contains &#39;task_instruction&#39;.</span>
+<span class="sd">    :return: The selected task instruction.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">task_instruction_raw</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;task_instruction&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task_instruction_raw</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="s2">&quot;task_type&quot;</span><span class="p">):</span>
+            <span class="n">prompt</span> <span class="o">=</span> <span class="n">task_instruction_raw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">handler</span><span class="o">.</span><span class="n">task_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">prompt</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task instruction for </span><span class="si">{</span><span class="n">handler</span><span class="o">.</span><span class="n">task_type</span><span class="si">}</span><span class="s2"> not found.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Handler </span><span class="si">{</span><span class="n">handler</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> does not specify a task_type.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">prompt</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task_instruction_raw</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">task_instruction_raw</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;task_instruction in config must be either a dict or a str.&quot;</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="BaseDataHandler"><a class="viewcode-back" href="../../../api_doc/datasets/utils.html#lightrft.datasets.utils.BaseDataHandler">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">BaseDataHandler</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Base class for data handlers.</span>
@@ -534,14 +557,23 @@
 
 <span class="sd">        :param item: The raw data item.</span>
 <span class="sd">        :type item: Dict[str, Any]</span>
-<span class="sd">        :param media_content: A dict containing loaded content.</span>
+<span class="sd">        :param media_content: A dict containing loaded content (e.g. PIL Images, Video paths).</span>
 <span class="sd">        :type media_content: Dict[str, Any]</span>
-<span class="sd">        :param config: A dict of additional configuration options.</span>
+<span class="sd">        :param config: A dict of additional configuration options (e.g. prompt templates, max_pixels).</span>
 <span class="sd">        :type config: Dict[str, Any]</span>
 
-<span class="sd">        :return: A tuple containing lists of dictionaries and one dictionary.</span>
-<span class="sd">                 For pointwise scoring data: (messages_chosen, messages_rejected, other)</span>
-<span class="sd">                 For pairwise ranking data: (messages, other)</span>
+<span class="sd">        :return: A tuple containing message lists and a metadata dictionary.</span>
+<span class="sd">                 - For point-wise scoring data (e.g., Scalar Reward Model training/evaluation):</span>
+<span class="sd">                   Return (messages_chosen, messages_rejected, other)</span>
+<span class="sd">                 - For pair-wise ranking data (e.g., Generative Reward Model training/evaluation):</span>
+<span class="sd">                   Return (messages, other)</span>
+
+<span class="sd">                 The `other` dictionary contains metadata, and can optionally include:</span>
+<span class="sd">                 - &quot;preference&quot;: (str) Indicates the ground truth preferred choice (&quot;A&quot;, &quot;B&quot;, or &quot;C&quot;).</span>
+<span class="sd">                 - &quot;task_type&quot;: (str) The type of task (e.g., &quot;text-to-video&quot;).</span>
+<span class="sd">                 - &quot;reward_rule_label&quot;: (str) A label used in RL to identify which reward</span>
+<span class="sd">                   function or reward model to apply to this specific sample when performing</span>
+<span class="sd">                   reinforcement fine-tuning.</span>
 <span class="sd">        :rtype: Union[Tuple[List[Dict], List[Dict], Dict], Tuple[List[Dict], Dict]]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div></div>

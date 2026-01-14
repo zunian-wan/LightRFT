@@ -305,7 +305,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDataHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDataHandler</span><span class="p">,</span> <span class="n">get_task_instructions</span>
 
 
 <div class="viewcode-block" id="OmniRewardBenchT2IHandler"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">OmniRewardBenchT2IHandler</span><span class="p">(</span><span class="n">BaseDataHandler</span><span class="p">):</span>
@@ -316,9 +316,24 @@
 <span class="sd">    Paper: https://huggingface.co/papers/2510.23451</span>
 <span class="sd">    Dataset Repo: https://huggingface.co/datasets/HongbangYuan/OmniRewardBench</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">task_type</span> <span class="o">=</span> <span class="s2">&quot;text-to-image&quot;</span>
+
 <div class="viewcode-block" id="OmniRewardBenchT2IHandler.load_data"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler.load_data">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Loads data from parquet file.</span>
+
+<span class="sd">        :param path: Path to the parquet file</span>
+<span class="sd">        :type path: str</span>
+
+<span class="sd">        :return: List of samples with &#39;data_root&#39; attached</span>
+<span class="sd">        :rtype: List[Dict[str, Any]]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            handler = OmniRewardBenchT2IHandler()</span>
+<span class="sd">            data = handler.load_data(&quot;path/to/OmniRewardBench/data.parquet&quot;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">raw_data</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow.parquet</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pq</span>
@@ -338,7 +353,19 @@
 
 <div class="viewcode-block" id="OmniRewardBenchT2IHandler.get_media_info"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler.get_media_info">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_media_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Extract path info for the two videos.</span>
+<span class="sd">        Extract media info (paths) for the two images.</span>
+
+<span class="sd">        :param item: A data item from load_data</span>
+<span class="sd">        :type item: Dict[str, Any]</span>
+
+<span class="sd">        :return: Dict containing local paths for &#39;image1&#39; and &#39;image2&#39;</span>
+<span class="sd">        :rtype: Dict[str, Dict[str, str]]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            info = handler.get_media_info(item)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data_root</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;data_root&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data_root</span><span class="p">:</span>
@@ -350,6 +377,9 @@
         <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;image1&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;image_local_path&#39;</span><span class="p">:</span> <span class="n">full_path1</span><span class="p">},</span> <span class="s1">&#39;image2&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;image_local_path&#39;</span><span class="p">:</span> <span class="n">full_path2</span><span class="p">}}</span></div>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">choice</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Helper to determine preference label.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">choice</span> <span class="o">==</span> <span class="s2">&quot;response1&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="s2">&quot;A&quot;</span>
         <span class="k">elif</span> <span class="n">choice</span> <span class="o">==</span> <span class="s2">&quot;response2&quot;</span><span class="p">:</span>
@@ -360,18 +390,23 @@
 <div class="viewcode-block" id="OmniRewardBenchT2IHandler.parse_item"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IHandler.parse_item">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parse_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">media_content</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
                    <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Parse a single T2I benchmark item into message pairs for ranking.</span>
+<span class="sd">        Parse a data item from OmniRewardBench-T2I into messages and metadata.</span>
 
-<span class="sd">        :param item: Raw data item from OmniRewardBench T2I dataset.</span>
+<span class="sd">        :param item: The raw data item</span>
 <span class="sd">        :type item: Dict[str, Any]</span>
 <span class="sd">        :param media_content: Loaded media content with &#39;image1&#39; and &#39;image2&#39; keys.</span>
 <span class="sd">        :type media_content: Dict[str, Any]</span>
-<span class="sd">        :param config: Configuration dict with task_instruction template.</span>
+<span class="sd">        :param config: Configuration for task instructions and max_pixels</span>
 <span class="sd">        :type config: Dict[str, Any]</span>
-<span class="sd">        :return: Tuple of (messages0, messages1, other_info) where messages are</span>
-<span class="sd">            formatted for the reward model and other_info contains metadata.</span>
+
+<span class="sd">        :return: A tuple of (messages0, messages1, metadata)</span>
 <span class="sd">        :rtype: Tuple[List[Dict], List[Dict], Dict]</span>
-<span class="sd">        :raises ValueError: If required visual content is missing.</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            msg0, msg1, other = handler.parse_item(item, media_content, config)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">image1</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;image1&#39;</span><span class="p">]</span>
         <span class="n">image2</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;image2&#39;</span><span class="p">]</span>
@@ -387,6 +422,9 @@
         <span class="n">task_instruction</span> <span class="o">=</span> <span class="n">task_instruction_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">gen_prompt</span><span class="p">)</span>
         <span class="c1"># criteria = item[&quot;criteria&quot;]</span>
 
+        <span class="c1"># Get max_pixels from config</span>
+        <span class="n">max_pixels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;max_pixels&quot;</span><span class="p">]</span>
+
         <span class="c1"># Build messages</span>
         <span class="n">messages0</span> <span class="o">=</span> <span class="p">[</span>
             <span class="p">{</span>
@@ -399,7 +437,7 @@
                 <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
                     <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image1</span><span class="p">,</span>
-                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">1280</span> <span class="o">*</span> <span class="mi">720</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
                 <span class="p">}]</span>
             <span class="p">}</span>
         <span class="p">]</span>
@@ -415,7 +453,7 @@
                 <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
                     <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image2</span><span class="p">,</span>
-                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">1280</span> <span class="o">*</span> <span class="mi">720</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
                 <span class="p">}]</span>
             <span class="p">}</span>
         <span class="p">]</span>
@@ -425,6 +463,7 @@
 
         <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">pref_label</span><span class="p">,</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
             <span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">],</span>
             <span class="s2">&quot;criteria_preference&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">],</span>
             <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
@@ -446,9 +485,23 @@
 <span class="sd">    Paper: https://huggingface.co/papers/2510.23451</span>
 <span class="sd">    Dataset Repo: https://huggingface.co/datasets/HongbangYuan/OmniRewardBench</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">task_type</span> <span class="o">=</span> <span class="s2">&quot;text-to-video&quot;</span>
+
 <div class="viewcode-block" id="OmniRewardBenchT2VHandler.get_media_info"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler.get_media_info">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_media_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Extract path info for the two videos.</span>
+<span class="sd">        Extract media info (paths) for the two videos.</span>
+
+<span class="sd">        :param item: A data item from load_data</span>
+<span class="sd">        :type item: Dict[str, Any]</span>
+
+<span class="sd">        :return: Dict containing local paths for &#39;video1&#39; and &#39;video2&#39;</span>
+<span class="sd">        :rtype: Dict[str, Dict[str, str]]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            info = handler.get_media_info(item)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data_root</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;data_root&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data_root</span><span class="p">:</span>
@@ -462,18 +515,23 @@
 <div class="viewcode-block" id="OmniRewardBenchT2VHandler.parse_item"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VHandler.parse_item">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parse_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">media_content</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
                    <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Parse a single T2V benchmark item into message pairs for ranking.</span>
+<span class="sd">        Parse a data item from OmniRewardBench-T2V into messages and metadata.</span>
 
-<span class="sd">        :param item: Raw data item from OmniRewardBench T2V dataset.</span>
+<span class="sd">        :param item: The raw data item</span>
 <span class="sd">        :type item: Dict[str, Any]</span>
-<span class="sd">        :param media_content: Loaded media content with &#39;video1&#39; and &#39;video2&#39; keys.</span>
+<span class="sd">        :param media_content: Loaded visual content</span>
 <span class="sd">        :type media_content: Dict[str, Any]</span>
-<span class="sd">        :param config: Configuration dict with task_instruction template.</span>
+<span class="sd">        :param config: Configuration for task instructions, max_pixels, and fps</span>
 <span class="sd">        :type config: Dict[str, Any]</span>
-<span class="sd">        :return: Tuple of (messages0, messages1, other_info) where messages are</span>
-<span class="sd">            formatted for the reward model and other_info contains metadata.</span>
+
+<span class="sd">        :return: A tuple of (messages0, messages1, metadata)</span>
 <span class="sd">        :rtype: Tuple[List[Dict], List[Dict], Dict]</span>
-<span class="sd">        :raises ValueError: If required visual content is missing.</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            msg0, msg1, other = handler.parse_item(item, media_content, config)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">video1</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;video1&#39;</span><span class="p">]</span>
         <span class="n">video2</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;video2&#39;</span><span class="p">]</span>
@@ -487,6 +545,9 @@
         <span class="c1"># Get system prompts from config</span>
         <span class="n">task_instruction_template</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;task_instruction&quot;</span><span class="p">]</span>
         <span class="n">task_instruction</span> <span class="o">=</span> <span class="n">task_instruction_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">gen_prompt</span><span class="p">)</span>
+
+        <span class="c1"># Get max_pixels from config</span>
+        <span class="n">max_pixels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;max_pixels&quot;</span><span class="p">]</span>
 
         <span class="c1"># Get FPS from config</span>
         <span class="n">fps</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;video_fps&quot;</span><span class="p">]</span>
@@ -504,7 +565,7 @@
                 <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;video&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;video&quot;</span><span class="p">:</span> <span class="n">video1</span><span class="p">,</span>
                 <span class="s2">&quot;fps&quot;</span><span class="p">:</span> <span class="n">fps</span><span class="p">,</span>
-                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">720</span> <span class="o">*</span> <span class="mi">480</span>
+                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
             <span class="p">}]</span>
         <span class="p">}]</span>
 
@@ -520,7 +581,7 @@
                 <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;video&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;video&quot;</span><span class="p">:</span> <span class="n">video2</span><span class="p">,</span>
                 <span class="s2">&quot;fps&quot;</span><span class="p">:</span> <span class="n">fps</span><span class="p">,</span>
-                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">720</span> <span class="o">*</span> <span class="mi">480</span>
+                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
             <span class="p">}]</span>
         <span class="p">}]</span>
 
@@ -529,6 +590,7 @@
 
         <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">pref_label</span><span class="p">,</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
             <span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">],</span>
             <span class="s2">&quot;criteria_preference&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">],</span>
             <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
@@ -550,9 +612,23 @@
 <span class="sd">    Paper: https://huggingface.co/papers/2510.23451</span>
 <span class="sd">    Dataset Repo: https://huggingface.co/datasets/HongbangYuan/OmniRewardBench</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">task_type</span> <span class="o">=</span> <span class="s2">&quot;text-to-audio&quot;</span>
+
 <div class="viewcode-block" id="OmniRewardBenchT2AHandler.get_media_info"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler.get_media_info">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_media_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Extract path info for the two audios.</span>
+<span class="sd">        Extract media info (paths) for the two audios.</span>
+
+<span class="sd">        :param item: A data item from load_data</span>
+<span class="sd">        :type item: Dict[str, Any]</span>
+
+<span class="sd">        :return: Dict containing local paths for &#39;audio1&#39; and &#39;audio2&#39;</span>
+<span class="sd">        :rtype: Dict[str, Dict[str, str]]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            info = handler.get_media_info(item)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">data_root</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;data_root&#39;</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">data_root</span><span class="p">:</span>
@@ -566,18 +642,23 @@
 <div class="viewcode-block" id="OmniRewardBenchT2AHandler.parse_item"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2AHandler.parse_item">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parse_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">media_content</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
                    <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Parse a single T2A benchmark item into message pairs for ranking.</span>
+<span class="sd">        Parse a data item from OmniRewardBench-T2A into messages and metadata.</span>
 
-<span class="sd">        :param item: Raw data item from OmniRewardBench T2A dataset.</span>
+<span class="sd">        :param item: The raw data item</span>
 <span class="sd">        :type item: Dict[str, Any]</span>
-<span class="sd">        :param media_content: Loaded media content with &#39;audio1&#39; and &#39;audio2&#39; keys.</span>
+<span class="sd">        :param media_content: Loaded visual content</span>
 <span class="sd">        :type media_content: Dict[str, Any]</span>
-<span class="sd">        :param config: Configuration dict with task_instruction template.</span>
+<span class="sd">        :param config: Configuration for task instructions</span>
 <span class="sd">        :type config: Dict[str, Any]</span>
-<span class="sd">        :return: Tuple of (messages0, messages1, other_info) where messages are</span>
-<span class="sd">            formatted for the reward model and other_info contains metadata.</span>
+
+<span class="sd">        :return: A tuple of (messages0, messages1, metadata)</span>
 <span class="sd">        :rtype: Tuple[List[Dict], List[Dict], Dict]</span>
-<span class="sd">        :raises ValueError: If required audio content is missing.</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            msg0, msg1, other = handler.parse_item(item, media_content, config)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">audio1</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;audio1&#39;</span><span class="p">]</span>
         <span class="n">audio2</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;audio2&#39;</span><span class="p">]</span>
@@ -626,6 +707,7 @@
 
         <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">pref_label</span><span class="p">,</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
             <span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">],</span>
             <span class="s2">&quot;criteria_preference&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">],</span>
             <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
@@ -650,18 +732,24 @@
 <div class="viewcode-block" id="OmniRewardBenchT2IGRMHandler.parse_item"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IGRMHandler.parse_item">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parse_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">media_content</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
                    <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Parse a single T2I item for generative reward model training.</span>
+<span class="sd">        Parse a data item from OmniRewardBench-T2I into one message and metadata.</span>
+<span class="sd">        For generative reward model training in pair-wise ranking task.</span>
 
-<span class="sd">        :param item: Raw data item from OmniRewardBench T2I dataset.</span>
+<span class="sd">        :param item: The raw data item</span>
 <span class="sd">        :type item: Dict[str, Any]</span>
-<span class="sd">        :param media_content: Loaded media content with &#39;image1&#39; and &#39;image2&#39; keys.</span>
+<span class="sd">        :param media_content: Loaded visual content</span>
 <span class="sd">        :type media_content: Dict[str, Any]</span>
-<span class="sd">        :param config: Configuration dict with task_instruction template.</span>
+<span class="sd">        :param config: Configuration for task instructions and max_pixels</span>
 <span class="sd">        :type config: Dict[str, Any]</span>
-<span class="sd">        :return: Tuple of (messages0, messages1, other_info) where messages are</span>
-<span class="sd">            formatted for the generative reward model.</span>
-<span class="sd">        :rtype: Tuple[List[Dict], List[Dict], Dict]</span>
-<span class="sd">        :raises ValueError: If required visual content is missing.</span>
+
+<span class="sd">        :return: A tuple of (messages, metadata)</span>
+<span class="sd">        :rtype: Tuple[List[Dict], Dict]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            messages, other = handler.parse_item(item, media_content, config)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">image1</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;image1&#39;</span><span class="p">]</span>
         <span class="n">image2</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;image2&#39;</span><span class="p">]</span>
@@ -676,6 +764,9 @@
         <span class="n">task_instruction_template</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;task_instruction&quot;</span><span class="p">]</span>
         <span class="n">task_instruction</span> <span class="o">=</span> <span class="n">task_instruction_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">gen_prompt</span><span class="p">)</span>
         <span class="n">criteria</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Get max_pixels from config</span>
+        <span class="n">max_pixels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;max_pixels&quot;</span><span class="p">]</span>
 
         <span class="c1"># Build messages</span>
         <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
@@ -695,7 +786,7 @@
                 <span class="p">},</span> <span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
                     <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image1</span><span class="p">,</span>
-                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">1280</span> <span class="o">*</span> <span class="mi">720</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
                 <span class="p">}]</span>
             <span class="p">},</span>
             <span class="p">{</span>
@@ -706,7 +797,7 @@
                 <span class="p">},</span> <span class="p">{</span>
                     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
                     <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image2</span><span class="p">,</span>
-                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="mi">1280</span> <span class="o">*</span> <span class="mi">720</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
                 <span class="p">}]</span>
             <span class="p">},</span>
         <span class="p">]</span>
@@ -716,6 +807,7 @@
 
         <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">pref_label</span><span class="p">,</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
             <span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">],</span>
             <span class="s2">&quot;criteria_preference&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">],</span>
             <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
@@ -723,6 +815,200 @@
             <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;source&#39;</span><span class="p">],</span>
             <span class="s2">&quot;image1_path&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;response1_path&#39;</span><span class="p">],</span>
             <span class="s2">&quot;image2_path&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;response2_path&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;model1&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;model1&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;model2&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;model2&#39;</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">messages</span><span class="p">,</span> <span class="n">other</span></div></div>
+
+
+<div class="viewcode-block" id="OmniRewardBenchT2IPairHandler"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IPairHandler">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">OmniRewardBenchT2IPairHandler</span><span class="p">(</span><span class="n">OmniRewardBenchT2IHandler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Data Handler for OmniRewardBench text-to-image human preferences benchmark.</span>
+<span class="sd">    Process for generative reward model on pair-wise ranking task.</span>
+
+<span class="sd">    Paper: https://huggingface.co/papers/2510.23451</span>
+<span class="sd">    Dataset Repo: https://huggingface.co/datasets/HongbangYuan/OmniRewardBench</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="OmniRewardBenchT2IPairHandler.parse_item"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2IPairHandler.parse_item">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parse_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">media_content</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+                   <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse a data item into generative messages and metadata.</span>
+
+<span class="sd">        :param item: The raw data item</span>
+<span class="sd">        :type item: Dict[str, Any]</span>
+<span class="sd">        :param media_content: Loaded visual content</span>
+<span class="sd">        :type media_content: Dict[str, Any]</span>
+<span class="sd">        :param config: Configuration for task instructions</span>
+<span class="sd">        :type config: Dict[str, Any]</span>
+
+<span class="sd">        :return: A tuple of (messages, metadata)</span>
+<span class="sd">        :rtype: Tuple[List[Dict], Dict]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            messages, other = handler.parse_item(item, media_content, config)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">image1</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;image1&#39;</span><span class="p">]</span>
+        <span class="n">image2</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;image2&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">image1</span><span class="p">,</span> <span class="n">image2</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing visual content for &#39;image1&#39; or &#39;image2&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get generation prompt from data item</span>
+        <span class="n">prompt_text</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Get system prompts from config</span>
+        <span class="n">task_instruction_template</span> <span class="o">=</span> <span class="n">get_task_instructions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="n">task_instruction</span> <span class="o">=</span> <span class="n">task_instruction_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">prompt_text</span><span class="p">)</span>
+        <span class="n">criteria</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Get max_pixels from config</span>
+        <span class="n">max_pixels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;max_pixels&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Build messages</span>
+        <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">task_instruction</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Please give your evaluation considering the following criteria: </span><span class="si">{</span><span class="n">criteria</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;**Image 1:**&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image1</span><span class="p">,</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span><span class="p">,</span>
+                <span class="p">}]</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;**Image 2:**&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;image&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">image2</span><span class="p">,</span>
+                    <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span><span class="p">,</span>
+                <span class="p">}]</span>
+            <span class="p">},</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Get human preference labels based on weighted scores</span>
+        <span class="n">pref_label</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_label</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">])</span>
+
+        <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">pref_label</span><span class="p">,</span>
+            <span class="s2">&quot;reward_rule_label&quot;</span><span class="p">:</span> <span class="s2">&quot;general&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
+            <span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;criteria_preference&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="n">prompt_text</span><span class="p">,</span>
+            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;source&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;image1_path&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;response1_path&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;image2_path&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;response2_path&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;model1&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;model1&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;model2&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;model2&#39;</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">messages</span><span class="p">,</span> <span class="n">other</span></div></div>
+
+
+<div class="viewcode-block" id="OmniRewardBenchT2VPairHandler"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VPairHandler">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">OmniRewardBenchT2VPairHandler</span><span class="p">(</span><span class="n">OmniRewardBenchT2VHandler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Data Handler for OmniRewardBench text-to-video human preferences benchmark.</span>
+<span class="sd">    Process for generative reward model on pair-wise ranking task.</span>
+
+<span class="sd">    Paper: https://huggingface.co/papers/2510.23451</span>
+<span class="sd">    Dataset Repo: https://huggingface.co/datasets/HongbangYuan/OmniRewardBench</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="OmniRewardBenchT2VPairHandler.parse_item"><a class="viewcode-back" href="../../../api_doc/datasets/omnirewardbench.html#lightrft.datasets.omnirewardbench.OmniRewardBenchT2VPairHandler.parse_item">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">parse_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">media_content</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+                   <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse a data item into generative messages and metadata.</span>
+
+<span class="sd">        :param item: The raw data item</span>
+<span class="sd">        :type item: Dict[str, Any]</span>
+<span class="sd">        :param media_content: Loaded visual content</span>
+<span class="sd">        :type media_content: Dict[str, Any]</span>
+<span class="sd">        :param config: Configuration for task instructions, max_pixels, and fps</span>
+<span class="sd">        :type config: Dict[str, Any]</span>
+
+<span class="sd">        :return: A tuple of (messages, metadata)</span>
+<span class="sd">        :rtype: Tuple[List[Dict], Dict]</span>
+
+<span class="sd">        **Example:**</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            messages, other = handler.parse_item(item, media_content, config)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">video1</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;video1&#39;</span><span class="p">]</span>
+        <span class="n">video2</span> <span class="o">=</span> <span class="n">media_content</span><span class="p">[</span><span class="s1">&#39;video2&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">video1</span><span class="p">,</span> <span class="n">video2</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing visual content for &#39;video1&#39; or &#39;video2&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get generation prompt from data item</span>
+        <span class="n">gen_prompt</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;prompt&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Get system prompts from config</span>
+        <span class="n">task_instruction_template</span> <span class="o">=</span> <span class="n">get_task_instructions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="n">task_instruction</span> <span class="o">=</span> <span class="n">task_instruction_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">gen_prompt</span><span class="p">)</span>
+
+        <span class="c1"># Get FPS and max_pixels from config</span>
+        <span class="n">fps</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;video_fps&quot;</span><span class="p">]</span>
+        <span class="n">max_pixels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;max_pixels&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Build messages</span>
+        <span class="n">messages</span> <span class="o">=</span> <span class="p">[{</span>
+            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">task_instruction</span><span class="p">)</span>
+        <span class="p">},</span> <span class="p">{</span>
+            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;**Video 1:**&quot;</span>
+            <span class="p">},</span> <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;video&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;video&quot;</span><span class="p">:</span> <span class="n">video1</span><span class="p">,</span>
+                <span class="s2">&quot;fps&quot;</span><span class="p">:</span> <span class="n">fps</span><span class="p">,</span>
+                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
+            <span class="p">}]</span>
+        <span class="p">},</span> <span class="p">{</span>
+            <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">[{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;**Video 2:**&quot;</span>
+            <span class="p">},</span> <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;video&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;video&quot;</span><span class="p">:</span> <span class="n">video2</span><span class="p">,</span>
+                <span class="s2">&quot;fps&quot;</span><span class="p">:</span> <span class="n">fps</span><span class="p">,</span>
+                <span class="s2">&quot;max_pixels&quot;</span><span class="p">:</span> <span class="n">max_pixels</span>
+            <span class="p">}]</span>
+        <span class="p">}]</span>
+
+        <span class="c1"># Get human preference labels based on weighted scores</span>
+        <span class="n">pref_label</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_label</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">])</span>
+
+        <span class="n">other</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;preference&quot;</span><span class="p">:</span> <span class="n">pref_label</span><span class="p">,</span>
+            <span class="s2">&quot;reward_rule_label&quot;</span><span class="p">:</span> <span class="s2">&quot;general&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;task_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_type</span><span class="p">,</span>
+            <span class="s2">&quot;criteria&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;criteria_preference&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;criteria_preference&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;prompt&quot;</span><span class="p">:</span> <span class="n">gen_prompt</span><span class="p">,</span>
+            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;source&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;video1_path&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;response1&#39;</span><span class="p">],</span>
+            <span class="s2">&quot;video2_path&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;response2&#39;</span><span class="p">],</span>
             <span class="s2">&quot;model1&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;model1&#39;</span><span class="p">],</span>
             <span class="s2">&quot;model2&quot;</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s1">&#39;model2&#39;</span><span class="p">],</span>
         <span class="p">}</span>
