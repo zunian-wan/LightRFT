@@ -306,8 +306,117 @@
             <div role="main" class="main-content" itemscope="itemscope" itemtype="http://schema.org/Article">
               <article itemprop="articleBody" id="pytorch-article" class="pytorch-article">
                 
-  <section id="lightrft-datasets-hpdv3">
-<h1>lightrft.datasets.hpdv3<a class="headerlink" href="#lightrft-datasets-hpdv3" title="Permalink to this heading">¶</a></h1>
+  <section id="module-lightrft.datasets.hpdv3">
+<span id="lightrft-datasets-hpdv3"></span><h1>lightrft.datasets.hpdv3<a class="headerlink" href="#module-lightrft.datasets.hpdv3" title="Permalink to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="lightrft.datasets.hpdv3.HPDv3GRMHandler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lightrft.datasets.hpdv3.</span></span><span class="sig-name descname"><span class="pre">HPDv3GRMHandler</span></span><a class="reference internal" href="../../_modules/lightrft/datasets/hpdv3.html#HPDv3GRMHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.datasets.hpdv3.HPDv3GRMHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3Handler" title="lightrft.datasets.hpdv3.HPDv3Handler"><code class="xref py py-class docutils literal notranslate"><span class="pre">HPDv3Handler</span></code></a></p>
+<p>Data Handler for HPDv3 dataset with Generative Reward Model (GRM) training.
+Inherits from HPDv3Handler but overrides parse_item to suit GRM needs.</p>
+<p>Paper: <a class="reference external" href="https://huggingface.co/MizzenAI/HPSv3">https://huggingface.co/MizzenAI/HPSv3</a>
+Dataset Repo: <a class="reference external" href="https://huggingface.co/datasets/MizzenAI/HPDv3">https://huggingface.co/datasets/MizzenAI/HPDv3</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="lightrft.datasets.hpdv3.HPDv3GRMHandler.parse_item">
+<span class="sig-name descname"><span class="pre">parse_item</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media_content</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/lightrft/datasets/hpdv3.html#HPDv3GRMHandler.parse_item"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.datasets.hpdv3.HPDv3GRMHandler.parse_item" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a single HPDv3 item for GRM training.</p>
+<p>Randomly shuffles preferred/rejected images to avoid positional bias and
+formats messages for generative reward model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>item</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Raw data item from HPDv3 dataset.</p></li>
+<li><p><strong>media_content</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Loaded media content with ‘preferred_image’ and
+‘rejected_image’ keys.</p></li>
+<li><p><strong>config</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Configuration dict with task_instruction template.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple of (messages0, messages1, other_info) where messages are
+formatted for the generative reward model.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[List[Dict], List[Dict], Dict]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If required visual content or prompt is missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="lightrft.datasets.hpdv3.HPDv3Handler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lightrft.datasets.hpdv3.</span></span><span class="sig-name descname"><span class="pre">HPDv3Handler</span></span><a class="reference internal" href="../../_modules/lightrft/datasets/hpdv3.html#HPDv3Handler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.datasets.hpdv3.HPDv3Handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="utils.html#lightrft.datasets.utils.BaseDataHandler" title="lightrft.datasets.utils.BaseDataHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">BaseDataHandler</span></code></a></p>
+<p>Data Handler for HPDv3 dataset. Image-to-Text human preferences dataset.</p>
+<p>Paper: <a class="reference external" href="https://huggingface.co/MizzenAI/HPSv3">https://huggingface.co/MizzenAI/HPSv3</a>
+Dataset Repo: <a class="reference external" href="https://huggingface.co/datasets/MizzenAI/HPDv3">https://huggingface.co/datasets/MizzenAI/HPDv3</a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="lightrft.datasets.hpdv3.HPDv3Handler.get_media_info">
+<span class="sig-name descname"><span class="pre">get_media_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/lightrft/datasets/hpdv3.html#HPDv3Handler.get_media_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.datasets.hpdv3.HPDv3Handler.get_media_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract path info for the preferred and rejected images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>item</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Data item containing image paths.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary with ‘preferred_image’ and ‘rejected_image’ keys mapping
+to path dictionaries, or None if files don’t exist.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[Dict[str, Dict[str, str]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lightrft.datasets.hpdv3.HPDv3Handler.load_data">
+<span class="sig-name descname"><span class="pre">load_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/lightrft/datasets/hpdv3.html#HPDv3Handler.load_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.datasets.hpdv3.HPDv3Handler.load_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load and validate HPDv3 data from JSON or JSONL file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to the data file.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of validated data items with existing visual files.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Dict[str, Any]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="lightrft.datasets.hpdv3.HPDv3Handler.parse_item">
+<span class="sig-name descname"><span class="pre">parse_item</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">media_content</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/lightrft/datasets/hpdv3.html#HPDv3Handler.parse_item"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.datasets.hpdv3.HPDv3Handler.parse_item" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse a single HPDv3 item into message pairs for ranking.</p>
+<p>Randomly shuffles preferred/rejected images to avoid positional bias.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>item</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Raw data item from HPDv3 dataset.</p></li>
+<li><p><strong>media_content</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Loaded media content with ‘preferred_image’ and
+‘rejected_image’ keys.</p></li>
+<li><p><strong>config</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – Configuration dict with task_instruction template.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple of (messages0, messages1, other_info) where messages are
+formatted for the reward model and other_info contains the preference label.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[List[Dict], List[Dict], Dict]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If required visual content or prompt is missing.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 
 
@@ -353,7 +462,19 @@
           <div class="pytorch-right-menu" id="pytorch-right-menu">
             <div class="pytorch-side-scroll" id="pytorch-side-scroll-right">
               <ul>
-<li><a class="reference internal" href="#">lightrft.datasets.hpdv3</a></li>
+<li><a class="reference internal" href="#">lightrft.datasets.hpdv3</a><ul>
+<li><a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3GRMHandler"><code class="docutils literal notranslate"><span class="pre">HPDv3GRMHandler</span></code></a><ul>
+<li><a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3GRMHandler.parse_item"><code class="docutils literal notranslate"><span class="pre">HPDv3GRMHandler.parse_item()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3Handler"><code class="docutils literal notranslate"><span class="pre">HPDv3Handler</span></code></a><ul>
+<li><a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3Handler.get_media_info"><code class="docutils literal notranslate"><span class="pre">HPDv3Handler.get_media_info()</span></code></a></li>
+<li><a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3Handler.load_data"><code class="docutils literal notranslate"><span class="pre">HPDv3Handler.load_data()</span></code></a></li>
+<li><a class="reference internal" href="#lightrft.datasets.hpdv3.HPDv3Handler.parse_item"><code class="docutils literal notranslate"><span class="pre">HPDv3Handler.parse_item()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 
             </div>
