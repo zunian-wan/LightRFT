@@ -54,8 +54,8 @@ from lightrft.trainer.experience_maker_vl import (
 from lightrft.utils.remote_rm_utils import remote_rm_fn
 from lightrft.utils import Timer, get_current_device
 from .utils import RunningMoments, compute_clip_fraction, get_cpgd_advantages_returns, fire_sampling
-from .image_utils import normalize_images, get_images_num, to_pil
-from .video_utils import normalize_videos, get_videos_num, to_video_tensor
+from .image_utils import normalize_images, get_images_num
+from .video_utils import normalize_videos, get_videos_num
 
 # ============================================================================
 # Data Structures
