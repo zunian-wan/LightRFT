@@ -25,10 +25,10 @@ class RFTDatasetVL(Dataset):
     """
     Dataset for Reinforcement Fine-Tuning (RFT) with vision-language models.
 
-    RFTDatasetVL supports multiple data sources through pluggable Data Handlers 
+    RFTDatasetVL supports multiple data sources through pluggable Data Handlers
     and is designed for training models using reinforcement learning.
 
-    It loads data items, processes multimodal content (images, videos), and 
+    It loads data items, processes multimodal content (images, videos), and
     prepares inputs suitable for the model.
 
     :param dataset_paths: List of dataset file paths or directories. The

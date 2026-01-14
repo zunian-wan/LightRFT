@@ -246,13 +246,8 @@ class MultimodalDataProcessor:
                 add_special_tokens=False,
             )
             all_prompt_token_ids_text = inputs_text["input_ids"]
-            # Text-only samples do not contribute any vision grids
-            all_images_grid_thw_text = torch.empty((0, 3), dtype=torch.long)
-            all_videos_grid_thw_text = torch.empty((0, 3), dtype=torch.long)
         else:
             all_prompt_token_ids_text = []
-            all_images_grid_thw_text = torch.empty((0, 3), dtype=torch.long)
-            all_videos_grid_thw_text = torch.empty((0, 3), dtype=torch.long)
 
         # ===== Stage 3-B: Multimodal processing =====
         if len(all_prompts_multimodal) > 0:

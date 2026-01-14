@@ -224,17 +224,17 @@ def _split_experience_batch_vl(experience: ExperienceVL) -> List:
     """
     Split a batch of vision-language experiences into individual items.
 
-    This function handles the complex logic of de-stacking vision-language data. 
-    Unlike text-only data, vision components (images/videos) are often flattened 
-    into a single continuous tensor for efficiency during rollout. This function 
-    uses metadata in `experience.info` (`image_num` and `video_num`) to correctly 
+    This function handles the complex logic of de-stacking vision-language data.
+    Unlike text-only data, vision components (images/videos) are often flattened
+    into a single continuous tensor for efficiency during rollout. This function
+    uses metadata in `experience.info` (`image_num` and `video_num`) to correctly
     slice these flattened tensors back into their per-sample components.
 
     Splitting Logic:
     1. Standard Tensors: `sequences`, `values`, etc. are split using `torch.unbind`.
     2. Grid Metadata: `image_grid_thws` (N, 3) is sliced based on `experience.info["image_num"]`.
        For example, if `image_num` is [2, 1], the first sample gets the first 2 rows of grids.
-    3. Pixel Values: `pixel_values` (Total_Patches, patches) is sliced based on the sum 
+    3. Pixel Values: `pixel_values` (Total_Patches, patches) is sliced based on the sum
        of tokens calculated from the sample's corresponding `image_grid_thws`.
 
     :param experience: Batch of vision-language experiences to split
@@ -323,7 +323,8 @@ def _split_experience_batch_vl(experience: ExperienceVL) -> List:
                         batch_kwargs[i][grid_key] = v
                 else:
                     raise ValueError(
-                        f"Ambiguous {grid_key} split: Total {grid_data.size(0)} vs Batch {batch_size}. Missing '{num_key}' in info."
+                        f"Ambiguous {grid_key} split: Total {grid_data.size(0)} vs Batch {batch_size}. "
+                        f"Missing '{num_key}' in info."
                     )
         else:
             for i in range(batch_size):
@@ -549,9 +550,9 @@ def _make_experience_batch_vl(items: List, packing_samples: bool = False) -> Exp
     """
     Create a batch of vision-language experiences from individual items.
 
-    This function aggregates individual `BufferItemVL` objects into a single `ExperienceVL` 
-    batch. It concatenates visual data (pixels and grids) into flattened tensors 
-    and automatically records the count per sample (`image_num`, `video_num`) in 
+    This function aggregates individual `BufferItemVL` objects into a single `ExperienceVL`
+    batch. It concatenates visual data (pixels and grids) into flattened tensors
+    and automatically records the count per sample (`image_num`, `video_num`) in
     the `info` dictionary to enable later splitting.
 
     :param items: List of individual vision-language experience items

@@ -334,7 +334,7 @@ class HPDv3PairHandler(HPDv3Handler):
         rejected_image = visual_content['rejected_image']
 
         if not all([preferred_image, rejected_image]):
-            raise ValueError(f"Missing visual content for 'preferred_image' or 'rejected_image'.")
+            raise ValueError("Missing visual content for 'preferred_image' or 'rejected_image'.")
 
         # Get generation prompt from data item
         prompt_text = item["prompt"]

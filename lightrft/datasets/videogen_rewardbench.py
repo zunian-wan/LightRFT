@@ -10,7 +10,7 @@ from .utils import BaseDataHandler, get_task_instructions
 class VideoGenRewardBenchPairHandler(BaseDataHandler):
     """
     Data Handler for VideoGen-RewardBench dataset in pairwise format.
-    
+
     Paper: https://arxiv.org/abs/2501.13918
     Dataset Repo: https://huggingface.co/KlingTeam
     """
@@ -109,7 +109,7 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         video_B = media_content['video_B']
 
         if not all([video_A, video_B]):
-            raise ValueError(f"Missing visual content for 'video_A' or 'video_B'.")
+            raise ValueError("Missing visual content for 'video_A' or 'video_B'.")
 
         # Get generation prompt from data item
         prompt_text = item["prompt"]
@@ -124,30 +124,30 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         overall_label = item["Overall"]  # "A" or "B" or "same"
         if overall_label == "A":
             preferred_video, rejected_video = video_A, video_B
-            preferred_fps, rejected_fps = item.get("fps_A", 2.0), item.get("fps_B", 2.0)
+            # preferred_fps, rejected_fps = item.get("fps_A", 2.0), item.get("fps_B", 2.0)
         elif overall_label == "B":
             preferred_video, rejected_video = video_B, video_A
-            preferred_fps, rejected_fps = item.get("fps_B", 2.0), item.get("fps_A", 2.0)
+            # preferred_fps, rejected_fps = item.get("fps_B", 2.0), item.get("fps_A", 2.0)
         elif overall_label == "same":
             preferred_video, rejected_video = video_A, video_B
-            preferred_fps, rejected_fps = item.get("fps_A", 2.0), item.get("fps_B", 2.0)
+            # preferred_fps, rejected_fps = item.get("fps_A", 2.0), item.get("fps_B", 2.0)
         else:
             raise ValueError(f"Invalid Overall label: {overall_label}")
 
         if overall_label == "same":
             preference = "C"
             video0, video1 = preferred_video, rejected_video
-            fps0, fps1 = preferred_fps, rejected_fps
+            # fps0, fps1 = preferred_fps, rejected_fps
         else:
             # Random pick from "A" or "B" to avoid positional bias
             # "A" means video0 is preferred, "B" means video1 is preferred
             preference = random.choice(["A", "B"])
             if preference == "A":
                 video0, video1 = preferred_video, rejected_video
-                fps0, fps1 = preferred_fps, rejected_fps
+                # fps0, fps1 = preferred_fps, rejected_fps
             else:
                 video0, video1 = rejected_video, preferred_video
-                fps0, fps1 = rejected_fps, preferred_fps
+                # fps0, fps1 = rejected_fps, preferred_fps
 
         # Get max_pixels from config
         max_pixels = config["max_pixels"]

@@ -550,7 +550,7 @@ class OmniRewardBenchT2IPairHandler(OmniRewardBenchT2IHandler):
         image2 = media_content['image2']
 
         if not all([image1, image2]):
-            raise ValueError(f"Missing visual content for 'image1' or 'image2'.")
+            raise ValueError("Missing visual content for 'image1' or 'image2'.")
 
         # Get generation prompt from data item
         prompt_text = item["prompt"]
@@ -650,7 +650,7 @@ class OmniRewardBenchT2VPairHandler(OmniRewardBenchT2VHandler):
         video2 = media_content['video2']
 
         if not all([video1, video2]):
-            raise ValueError(f"Missing visual content for 'video1' or 'video2'.")
+            raise ValueError("Missing visual content for 'video1' or 'video2'.")
 
         # Get generation prompt from data item
         gen_prompt = item["prompt"]

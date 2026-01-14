@@ -13,7 +13,7 @@ from .utils import BaseDataHandler, get_task_instructions
 class GenAIBenchPairHandler(BaseDataHandler):
     """
     Data Handler for GenAI-Bench dataset.
-    
+
     Paper: https://arxiv.org/pdf/2406.13743
     Dataset Repo: https://huggingface.co/datasets/BaiqiL/GenAI-Bench
     """
@@ -218,7 +218,7 @@ class GenAIBenchPairHandler(BaseDataHandler):
 class GenAIBenchVideoPairHandler(BaseDataHandler):
     """
     Data Handler for GenAI-Bench-Video dataset.
-    
+
     Paper: https://arxiv.org/pdf/2406.13743
     Dataset Repo: https://huggingface.co/datasets/BaiqiL/GenAI-Bench
     """

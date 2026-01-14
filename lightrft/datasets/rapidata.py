@@ -387,7 +387,7 @@ class RapidataT2VPairHandler(RapidataT2VHandler):
         video2 = media_content['video2']
 
         if not all([video1, video2]):
-            raise ValueError(f"Missing visual content for 'video1' or 'video2'.")
+            raise ValueError("Missing visual content for 'video1' or 'video2'.")
 
         # Get generation prompt from data item
         video_gen_prompt = item["prompt"]

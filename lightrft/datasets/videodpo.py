@@ -12,15 +12,17 @@ class VideoDPOPairHandler(BaseDataHandler):
     """
     Data Handler for VideoDPO dataset in pairwise format.
 
-    This handler is designed to process the VideoDPO dataset. 
-    It reads pairwise comparison data where each sample consists of a 
+    This handler is designed to process the VideoDPO dataset.
+    It reads pairwise comparison data where each sample consists of a
     text prompt and two generated videos (one preferred over the other).
 
     The handler performs the following tasks:
     1. Loads pairwise metadata from a JSON file (typically 'pair.json').
     2. Resolves the file paths for the 'winner' and 'loser' videos based on the dataset's directory structure.
-    3. Constructs the input messages for the model, including the system instruction, the text prompt, and the two videos.
-    4. Randomly swaps the order of videos to prevent positional bias and assigns the correct preference label ('A' or 'B').
+    3. Constructs the input messages for the model, including the system instruction,
+       the text prompt, and the two videos.
+    4. Randomly swaps the order of videos to prevent positional bias and assigns the
+       correct preference label ('A' or 'B').
 
     Paper: https://arxiv.org/abs/2412.14167
     Dataset Repo: https://videodpo.github.io/
