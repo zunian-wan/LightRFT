@@ -19,7 +19,7 @@ class HPDv3Handler(BaseDataHandler):
 
     def load_data(self, path: str) -> List[Dict[str, Any]]:
         """
-        Loads data from JSON/JSONL file.
+        Load and validate HPDv3 data from JSON or JSONL file.
 
         :param path: Path to the JSON/JSONL file
         :type path: str
@@ -65,7 +65,7 @@ class HPDv3Handler(BaseDataHandler):
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
-        Extract media info (paths) for the two images.
+        Extract path info for the preferred and rejected images.
 
         :param item: A data item from load_data
         :type item: Dict[str, Any]
@@ -101,7 +101,9 @@ class HPDv3Handler(BaseDataHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a single HPDv3 item into message pairs and metadata for ranking.
+
+        Randomly shuffles preferred/rejected images to avoid positional bias.
 
         :param item: The raw data item
         :type item: Dict[str, Any]
@@ -112,6 +114,8 @@ class HPDv3Handler(BaseDataHandler):
 
         :return: A tuple of (messages0, messages1, metadata)
         :rtype: Tuple[List[Dict], List[Dict], Dict]
+
+        :raises ValueError: If required visual content or prompt is missing.
 
         **Example:**
 
@@ -200,7 +204,7 @@ class HPDv3GRMHandler(HPDv3Handler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into generative messages and metadata.
+        Parse a single HPDv3 item for GRM training.
 
         :param item: The raw data item
         :type item: Dict[str, Any]

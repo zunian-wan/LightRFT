@@ -16,9 +16,9 @@ class AudioAlpacaHandler(BaseDataHandler):
     """
     def load_data(self, path: str) -> List[Dict[str, Any]]:
         """
-        Load data from parquet files in the specified path.
+        Load and validate Audio Alpaca data from parquet files.
 
-        :param path: Path to the parquet file or directory containing parquet files
+        :param path: Path to the directory containing parquet files
         :type path: str
 
         :return: A list of data items
@@ -87,13 +87,13 @@ class AudioAlpacaHandler(BaseDataHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a single Audio Alpaca item into message pairs for ranking.
 
-        :param item: The raw data item
+        :param item: Raw data item from Audio Alpaca dataset.
         :type item: Dict[str, Any]
-        :param media_content: Loaded visual content (audios)
+        :param media_content: Loaded audio content with 'chosen_audio' and 'rejected_audio' keys.
         :type media_content: Dict[str, Any]
-        :param config: Configuration for task instructions
+        :param config: Configuration dict with task_instruction template.
         :type config: Dict[str, Any]
 
         :return: A tuple of (messages0, messages1, metadata)

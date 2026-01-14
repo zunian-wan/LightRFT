@@ -19,10 +19,8 @@ class GRMDataset(Dataset):
     and covers both understanding tasks (image-to-text, video-to-text) and
     generation tasks (text-to-image, text-to-video).
 
-    :param dataset_paths: List of dataset file paths or directories. The
-        handler is determined by the source keyword (e.g. "hpdv3",
-        "imagegen-cot-reward", "omnirewardbench"). The format is "source:path".
-        e.g. "hpdv3:/path/to/train.json"
+    :param dataset_paths: List of dataset file paths or directories, in the format ``source:path`` where
+        the handler is determined by the source keyword such as hpdv3, imagegen-cot-reward, or omnirewardbench.
     :type dataset_paths: List[str]
     :param processor: Multimodal processor used for tokenization and visual
         processing.
@@ -43,7 +41,7 @@ class GRMDataset(Dataset):
         labels) or evaluation (no labels returned).
     :type is_training: bool
 
-    :example:
+    **Example:**
 
         .. code-block:: python
 

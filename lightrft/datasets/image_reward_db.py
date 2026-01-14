@@ -133,7 +133,7 @@ class ImageRewardDBHandler(BaseDataHandler):
 
     def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """
-        Extract media info (paths) for the two images.
+        Extract path info for chosen and rejected images.
 
         :param item: A data item from load_data
         :type item: Dict[str, Any]
@@ -169,13 +169,13 @@ class ImageRewardDBHandler(BaseDataHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a single ImageRewardDB item into message pairs for ranking.
 
-        :param item: The raw data item
+        :param item: Raw data item from ImageRewardDB dataset.
         :type item: Dict[str, Any]
-        :param media_content: Loaded visual content
+        :param media_content: Loaded media content with 'preferred_image' and 'rejected_image' keys.
         :type media_content: Dict[str, Any]
-        :param config: Configuration for task instructions and max_pixels
+        :param config: Configuration dict with task instructions and max_pixels
         :type config: Dict[str, Any]
 
         :return: A tuple of (messages0, messages1, metadata)

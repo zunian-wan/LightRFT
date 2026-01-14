@@ -86,11 +86,11 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a data item from OmniRewardBench-T2I into messages and metadata.
 
         :param item: The raw data item
         :type item: Dict[str, Any]
-        :param media_content: Loaded visual content
+        :param media_content: Loaded media content with 'image1' and 'image2' keys.
         :type media_content: Dict[str, Any]
         :param config: Configuration for task instructions and max_pixels
         :type config: Dict[str, Any]
@@ -211,7 +211,7 @@ class OmniRewardBenchT2VHandler(OmniRewardBenchT2IHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a data item from OmniRewardBench-T2V into messages and metadata.
 
         :param item: The raw data item
         :type item: Dict[str, Any]
@@ -338,7 +338,7 @@ class OmniRewardBenchT2AHandler(OmniRewardBenchT2IHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a data item from OmniRewardBench-T2A into messages and metadata.
 
         :param item: The raw data item
         :type item: Dict[str, Any]
@@ -428,7 +428,8 @@ class OmniRewardBenchT2IGRMHandler(OmniRewardBenchT2IHandler):
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
         """
-        Parse a data item into generative messages and metadata.
+        Parse a data item from OmniRewardBench-T2I into one message and metadata.
+        For generative reward model training in pair-wise ranking task.
 
         :param item: The raw data item
         :type item: Dict[str, Any]

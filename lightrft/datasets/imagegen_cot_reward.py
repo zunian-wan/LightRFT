@@ -82,9 +82,9 @@ class ImageGenCoTRewardGRMHandler(BaseDataHandler):
         config: Dict[str, Any] | None,
     ) -> Tuple[List[Dict], Dict]:
         """
-        Parse a data item into messages and metadata.
+        Parse a single ImageGen-CoT-Reward item into message pairs.
 
-        :param item: The raw data item
+        :param item: Raw data item from ImageGen-CoT-Reward dataset.
         :type item: Dict[str, Any]
         :param media_content: Loaded image content (PIL images/bytes)
         :type media_content: Dict[str, Any]
