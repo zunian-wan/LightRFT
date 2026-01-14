@@ -843,7 +843,7 @@ class StrategyBase(ABC):
                     vid_list = all_videos[vid_start_idx:vid_start_idx + vid_num]
             else:
                 vid_list = []
-            
+
             multi_modal_data = {}
             if len(img_list) > 0 and img_list[0] is not None:
                 multi_modal_data["image"] = img_list
@@ -923,8 +923,8 @@ class StrategyBase(ABC):
 
         if is_multimodal:
             inputs = self._build_multimodal_inputs(
-                all_prompts=all_prompts, 
-                all_images=all_images, 
+                all_prompts=all_prompts,
+                all_images=all_images,
                 images_num=images_num,
                 all_videos=all_videos,
                 videos_num=videos_num,

@@ -45,10 +45,8 @@ class RapidataT2VHandler(BaseDataHandler):
         raw_data = []
         import pyarrow.parquet as pq
         data_table = pq.read_table(path)
-        raw_data = [{
-            name: col[i].as_py()
-            for name, col in zip(data_table.column_names, data_table.itercolumns())
-        }
+        raw_data = [{name: col[i].as_py()
+                     for name, col in zip(data_table.column_names, data_table.itercolumns())}
                     for i in range(data_table.num_rows)]
 
         data_root = os.path.dirname(os.path.dirname(path))
@@ -134,22 +132,18 @@ class RapidataT2VHandler(BaseDataHandler):
         fps = config["video_fps"]
 
         # Build messages
-        messages0 = [
-            {
-                "role": "system",
-                "content": copy.deepcopy(task_instruction)
-            },
-            {
-                "role": "user",
-                "content": [{
-                    "type": "video",
-                    "video": video1,
-                    "fps": fps,
-                    "max_pixels": max_pixels
-                    }
-                ]
-            }
-        ]
+        messages0 = [{
+            "role": "system",
+            "content": copy.deepcopy(task_instruction)
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "video",
+                "video": video1,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }]
 
         messages1 = [{
             "role": "system",
@@ -167,7 +161,8 @@ class RapidataT2VHandler(BaseDataHandler):
         # Get human preference labels and total scores based on weighted metrics
         metrics = ['Preference', 'Coherence', 'Alignment']
         labels = {
-            f"{m.lower()}_label": self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
+            f"{m.lower()}_label":
+            self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
             for m in metrics
         }
 
@@ -329,7 +324,8 @@ class RapidataI2VHandler(RapidataT2VHandler):
         # Get human preference labels and total scores based on weighted metrics
         metrics = ['Preference', 'Coherence', 'Alignment']
         labels = {
-            f"{m.lower()}_label": self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
+            f"{m.lower()}_label":
+            self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
             for m in metrics
         }
 
@@ -351,12 +347,9 @@ class RapidataT2VPairHandler(RapidataT2VHandler):
     """
     def __init__(self):
         super().__init__()
-    
-    def parse_item(self, 
-                   item: Dict[str, Any], 
-                   media_content: Dict[str, Any], 
-                   config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], Dict]:
+
+    def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
+                   config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
         """
         Parse a text-to-video data item into pairwise messages and metadata.
 
@@ -396,27 +389,43 @@ class RapidataT2VPairHandler(RapidataT2VHandler):
         fps = config["video_fps"]
 
         # Build messages
-        messages = [
-        {
-            "role": "system", 
-            "content": [{"type": "text", "text": task_instruction}]
-        },
-        {
+        messages = [{
+            "role": "system",
+            "content": [{
+                "type": "text",
+                "text": task_instruction
+            }]
+        }, {
             "role": "user",
             "content": [
-                {"type": "text", "text": "The following is the first video."},
-                {"type": "video", "video": video1, "fps": fps, "max_pixels": max_pixels},
-                
-                {"type": "text", "text": "The following is the second video."},
-                {"type": "video", "video": video2, "fps": fps, "max_pixels": max_pixels},
-                ]
-            }
-        ]
-        
+                {
+                    "type": "text",
+                    "text": "The following is the first video."
+                },
+                {
+                    "type": "video",
+                    "video": video1,
+                    "fps": fps,
+                    "max_pixels": max_pixels
+                },
+                {
+                    "type": "text",
+                    "text": "The following is the second video."
+                },
+                {
+                    "type": "video",
+                    "video": video2,
+                    "fps": fps,
+                    "max_pixels": max_pixels
+                },
+            ]
+        }]
+
         # Get human preference labels and total scores based on weighted metrics
         metrics = ['Preference', 'Coherence', 'Alignment']
         labels = {
-            f"{m.lower()}_label": self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
+            f"{m.lower()}_label":
+            self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
             for m in metrics
         }
 
@@ -441,12 +450,9 @@ class RapidataI2VPairHandler(RapidataI2VHandler):
 
     def __init__(self):
         super().__init__()
-    
-    def parse_item(self, 
-                   item: Dict[str, Any], 
-                   media_content: Dict[str, Any], 
-                   config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], Dict]:
+
+    def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
+                   config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
         """
         Parse an image-to-video data item into pairwise messages and metadata.
 
@@ -485,30 +491,52 @@ class RapidataI2VPairHandler(RapidataI2VHandler):
         max_pixels = config["max_pixels"]
 
         # Build messages
-        messages = [
-        {
-            "role": "system", 
-            "content": [{"type": "text", "text": task_instruction}]
-        },
-        {
+        messages = [{
+            "role": "system",
+            "content": [{
+                "type": "text",
+                "text": task_instruction
+            }]
+        }, {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Reference Image:"},
-                {"type": "image", "image": init_image, "max_pixels": max_pixels},
-                
-                {"type": "text", "text": "The following is the first video."},
-                {"type": "video", "video": video1, "fps": fps, "max_pixels": max_pixels},
-                
-                {"type": "text", "text": "The following is the second video."},
-                {"type": "video", "video": video2, "fps": fps, "max_pixels": max_pixels},
-                ]
-            }
-        ]
-        
+                {
+                    "type": "text",
+                    "text": "Reference Image:"
+                },
+                {
+                    "type": "image",
+                    "image": init_image,
+                    "max_pixels": max_pixels
+                },
+                {
+                    "type": "text",
+                    "text": "The following is the first video."
+                },
+                {
+                    "type": "video",
+                    "video": video1,
+                    "fps": fps,
+                    "max_pixels": max_pixels
+                },
+                {
+                    "type": "text",
+                    "text": "The following is the second video."
+                },
+                {
+                    "type": "video",
+                    "video": video2,
+                    "fps": fps,
+                    "max_pixels": max_pixels
+                },
+            ]
+        }]
+
         # Get human preference labels and total scores based on weighted metrics
         metrics = ['Preference', 'Coherence', 'Alignment']
         labels = {
-            f"{m.lower()}_label": self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
+            f"{m.lower()}_label":
+            self._get_label(item.get(f'weighted_results1_{m}'), item.get(f'weighted_results2_{m}'))
             for m in metrics
         }
 

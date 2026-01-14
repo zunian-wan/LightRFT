@@ -53,7 +53,7 @@ def get_vllm_engine_for_rollout(args: Any) -> LLM:
             limit_mm_per_prompt["image"] = args.limit_mm_image_per_prompt
         if hasattr(args, "limit_mm_video_per_prompt"):
             limit_mm_per_prompt["video"] = args.limit_mm_video_per_prompt
-        
+
         if limit_mm_per_prompt:
             kwargs["limit_mm_per_prompt"] = limit_mm_per_prompt
 

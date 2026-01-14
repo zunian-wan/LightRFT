@@ -154,8 +154,8 @@ class ActorVL(nn.Module):
 
     @torch.no_grad()
     def generate(
-        self, 
-        input_ids: torch.Tensor, 
+        self,
+        input_ids: torch.Tensor,
         pixel_values: Optional[torch.Tensor] = None,
         image_grid_thw: Optional[torch.Tensor] = None,
         pixel_values_videos: Optional[torch.Tensor] = None,
@@ -298,7 +298,7 @@ class ActorVL(nn.Module):
             position_ids = reset_position_ids(attention_mask)
             # explicitly ignore attention_mask for packing_samples
             attention_mask = None
-            
+
         output = self.model(
             sequences,
             attention_mask=attention_mask,

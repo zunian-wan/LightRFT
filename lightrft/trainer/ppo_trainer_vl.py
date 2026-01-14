@@ -419,11 +419,11 @@ class PPOTrainerVL(ABC):
 
                 for i, experience in enumerate(
                     self.experience_maker.make_experience_list(
-                        rand_prompts, 
-                        rand_images, 
+                        rand_prompts,
+                        rand_images,
                         all_videos=rand_videos,
-                        all_references=rand_references, 
-                        all_labels=rand_labels, 
+                        all_references=rand_references,
+                        all_labels=rand_labels,
                         **self.generate_kwargs
                     )
                 ):
@@ -918,7 +918,9 @@ class PPOTrainerVL(ABC):
         # Layer 3: Apply defensive device placement to all multimodal tensors
         pixel_values = ensure_device_and_contiguous(experience.pixel_values, "pixel_values")
         image_grid_thws = ensure_device_and_contiguous(experience.image_grid_thws, "image_grid_thws")
-        pixel_values_videos = ensure_device_and_contiguous(getattr(experience, "pixel_values_videos", None), "pixel_values_videos")
+        pixel_values_videos = ensure_device_and_contiguous(
+            getattr(experience, "pixel_values_videos", None), "pixel_values_videos"
+        )
         video_grid_thws = ensure_device_and_contiguous(getattr(experience, "video_grid_thws", None), "video_grid_thws")
 
         # TODO: This is a bad indicator to say that data is packed...
@@ -1113,7 +1115,7 @@ class PPOTrainerVL(ABC):
                 else:
                     eval_prompts, eval_images, eval_references, eval_labels = batch
                     eval_videos = None
-                
+
                 # Generate responses using experience maker (but don't train on them)
                 # We reuse the experience maker but only for generation
                 for experience in self.experience_maker.make_experience_list(

@@ -45,15 +45,15 @@ class VideoDPOPairHandler(BaseDataHandler):
             data = handler.load_data("path/to/VideoDPO/pair.json")
         """
         data_root = os.path.dirname(path)
-            
+
         with open(path, 'r') as f:
             pairs = json.load(f)
-            
+
         processed_data = []
         for item in pairs:
             v1_idx = item['video1']
             v2_idx = item['video2']
-            
+
             # Infer paths from indices based on dataset structure
             # Even index -> winvideos, Odd index -> losevideos
             # File index is global_idx // 2
@@ -66,7 +66,7 @@ class VideoDPOPairHandler(BaseDataHandler):
             item['video1_rel_path'] = get_rel_path(v1_idx)
             item['video2_rel_path'] = get_rel_path(v2_idx)
             item['data_root'] = data_root
-            
+
             processed_data.append(item)
 
         logger.info(f"Loaded {len(processed_data)} samples from {path}")
@@ -91,7 +91,7 @@ class VideoDPOPairHandler(BaseDataHandler):
             # Result: {'video1': {'video_local_path': '/root/v1.mp4'}, ...}
         """
         data_root = item["data_root"]
-        
+
         full_path1 = os.path.join(data_root, item['video1_rel_path'])
         full_path2 = os.path.join(data_root, item['video2_rel_path'])
 
@@ -150,28 +150,43 @@ class VideoDPOPairHandler(BaseDataHandler):
             first_video = video1
             second_video = video2
             is_swapped = False
-        
+
         # # Determine preference label
         preference = "B" if is_swapped else "A"
 
         # Build messages
-        messages = [
-        {
-            "role": "system", 
-            "content": [{"type": "text", "text": task_instruction}]
-        },
-        {
+        messages = [{
+            "role": "system",
+            "content": [{
+                "type": "text",
+                "text": task_instruction
+            }]
+        }, {
             "role": "user",
             "content": [
-                {"type": "text", "text": "The following is the first video."},
-                {"type": "video", "video": first_video, "fps": fps, "max_pixels": max_pixels},
-                
-                {"type": "text", "text": "The following is the second video."},
-                {"type": "video", "video": second_video, "fps": fps, "max_pixels": max_pixels},
-                ]
-            }
-        ]
-        
+                {
+                    "type": "text",
+                    "text": "The following is the first video."
+                },
+                {
+                    "type": "video",
+                    "video": first_video,
+                    "fps": fps,
+                    "max_pixels": max_pixels
+                },
+                {
+                    "type": "text",
+                    "text": "The following is the second video."
+                },
+                {
+                    "type": "video",
+                    "video": second_video,
+                    "fps": fps,
+                    "max_pixels": max_pixels
+                },
+            ]
+        }]
+
         other = {
             "preference": preference,
             "reward_rule_label": "general",
@@ -181,5 +196,5 @@ class VideoDPOPairHandler(BaseDataHandler):
             "video1_path": first_video,
             "video2_path": second_video,
         }
-    
+
         return messages, other

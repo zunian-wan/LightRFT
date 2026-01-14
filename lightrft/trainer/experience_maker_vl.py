@@ -106,7 +106,7 @@ class ExperienceVL:
     pixel_values: Optional[torch.Tensor] = None
     image_grid_thws: Optional[torch.Tensor] = None
     raw_images: Optional[List[Image.Image]] = None
-    
+
     # Video processing related
     pixel_values_videos: Optional[torch.Tensor] = None
     video_grid_thws: Optional[torch.Tensor] = None
@@ -250,7 +250,7 @@ class SamplesVL:
     image_grid_thws: Optional[torch.Tensor] = None
     raw_images: Optional[List[Image.Image]] = None
     image_num: Optional[List[int]] = None
-    
+
     pixel_values_videos: Optional[torch.Tensor] = None
     video_grid_thws: Optional[torch.Tensor] = None
     video_num: Optional[List[int]] = None

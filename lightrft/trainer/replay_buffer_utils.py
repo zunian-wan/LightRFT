@@ -75,8 +75,8 @@ class BufferItemVL:
 
     pixel_values: Optional[torch.Tensor] = None  # image pixel processed by HF processor
     image_grid_thws: Optional[torch.Tensor] = None  # image grid thw
-    pixel_values_videos: Optional[torch.Tensor] = None # video pixel processed by HF processor
-    video_grid_thws: Optional[torch.Tensor] = None # video grid thw
+    pixel_values_videos: Optional[torch.Tensor] = None  # video pixel processed by HF processor
+    video_grid_thws: Optional[torch.Tensor] = None  # video grid thw
     raw_images: Optional[List[Image.Image]] = None  # raw images before processing
 
     action_log_probs: torch.Tensor = None
@@ -304,11 +304,11 @@ def _split_experience_batch_vl(experience: ExperienceVL) -> List:
             if nums is not None:
                 if isinstance(nums, torch.Tensor):
                     nums = nums.tolist()
-                
+
                 curr_idx = 0
                 for i, n in enumerate(nums):
                     if n > 0:
-                        batch_kwargs[i][grid_key] = grid_data[curr_idx : curr_idx + n]
+                        batch_kwargs[i][grid_key] = grid_data[curr_idx:curr_idx + n]
                         curr_idx += n
                     else:
                         batch_kwargs[i][grid_key] = None
@@ -322,7 +322,9 @@ def _split_experience_batch_vl(experience: ExperienceVL) -> List:
                     for i, v in enumerate(grid_data):
                         batch_kwargs[i][grid_key] = v
                 else:
-                    raise ValueError(f"Ambiguous {grid_key} split: Total {grid_data.size(0)} vs Batch {batch_size}. Missing '{num_key}' in info.")
+                    raise ValueError(
+                        f"Ambiguous {grid_key} split: Total {grid_data.size(0)} vs Batch {batch_size}. Missing '{num_key}' in info."
+                    )
         else:
             for i in range(batch_size):
                 batch_kwargs[i][grid_key] = None
@@ -339,7 +341,7 @@ def _split_experience_batch_vl(experience: ExperienceVL) -> List:
                     num_image_tokens = torch.sum(torch.prod(grid, dim=-1)).item()
                 else:
                     num_image_tokens = 0
-                
+
                 # Slice from the flattened pixel_values
                 batch_kwargs[i]["pixel_values"] = pixel_values[index:index + num_image_tokens]
                 index += num_image_tokens
@@ -603,8 +605,10 @@ def _make_experience_batch_vl(items: List, packing_samples: bool = False) -> Exp
     kwargs["pixel_values"] = torch.cat(pixel_values_list, dim=0) if pixel_values_list else None
 
     image_grid_thws_list = [
-        item.image_grid_thws.unsqueeze(0) if (item.image_grid_thws is not None and item.image_grid_thws.dim() == 1) else item.image_grid_thws
-        for item in items if item.image_grid_thws is not None
+        item.image_grid_thws.unsqueeze(0) if
+        (item.image_grid_thws is not None and item.image_grid_thws.dim() == 1) else item.image_grid_thws
+        for item in items
+        if item.image_grid_thws is not None
     ]
     if image_grid_thws_list:
         kwargs["image_grid_thws"] = torch.cat(image_grid_thws_list, dim=0)
@@ -612,12 +616,18 @@ def _make_experience_batch_vl(items: List, packing_samples: bool = False) -> Exp
         kwargs["image_grid_thws"] = None
 
     # Video data processing
-    pixel_values_videos_list = [item.pixel_values_videos for item in items if item.pixel_values_videos is not None and item.pixel_values_videos.numel() > 0]
+    pixel_values_videos_list = [
+        item.pixel_values_videos
+        for item in items
+        if item.pixel_values_videos is not None and item.pixel_values_videos.numel() > 0
+    ]
     kwargs["pixel_values_videos"] = torch.cat(pixel_values_videos_list, dim=0) if pixel_values_videos_list else None
 
     video_grid_thws_list = [
-        item.video_grid_thws.unsqueeze(0) if (item.video_grid_thws is not None and item.video_grid_thws.dim() == 1) else item.video_grid_thws
-        for item in items if item.video_grid_thws is not None
+        item.video_grid_thws.unsqueeze(0) if
+        (item.video_grid_thws is not None and item.video_grid_thws.dim() == 1) else item.video_grid_thws
+        for item in items
+        if item.video_grid_thws is not None
     ]
     if video_grid_thws_list:
         kwargs["video_grid_thws"] = torch.cat(video_grid_thws_list, dim=0)
@@ -638,13 +648,13 @@ def _make_experience_batch_vl(items: List, packing_samples: bool = False) -> Exp
             image_nums.append(item.image_grid_thws.size(0) if item.image_grid_thws.dim() > 1 else 1)
         else:
             image_nums.append(0)
-        
+
         # Determine number of video components
         if item.video_grid_thws is not None:
             video_nums.append(item.video_grid_thws.size(0) if item.video_grid_thws.dim() > 1 else 1)
         else:
             video_nums.append(0)
-    
+
     if items and items[0].info:
         for key in items[0].info.keys():
             vals = [item.info[key] for item in items]

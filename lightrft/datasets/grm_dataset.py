@@ -51,7 +51,6 @@ class GRMDataset(Dataset):
                 'imagegen-cot-reward-5k:/data/imagegen-cot-reward-5k/train.json'
             ], processor=proc, tokenizer=tok, max_length=4096, is_training=True)
     """
-
     def __init__(
         self,
         dataset_paths: List[str],

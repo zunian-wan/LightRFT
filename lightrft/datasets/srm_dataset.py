@@ -57,7 +57,6 @@ class RankDatasetVL(Dataset):
                 'hpdv3:/data/hpdv3/train.json'
             ], processor=proc, tokenizer=tok, max_length=4096)
     """
-
     def __init__(
         self,
         dataset_paths: List[str],
@@ -166,7 +165,8 @@ class RankDatasetVL(Dataset):
 
         return input0_token, input1_token, other
 
-    def _tokenize_pair(self, messages0: List[Dict], messages1: List[Dict]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    def _tokenize_pair(self, messages0: List[Dict],
+                       messages1: List[Dict]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Tokenize a pair of messages.
 
@@ -332,7 +332,6 @@ class RankDatasetAL(Dataset):
                 'audio-alpaca:/path/to/file.parquet'
             ], processor=proc, tokenizer=tok, max_length=4096)
     """
-
     def __init__(
         self,
         dataset_paths: List[str],
@@ -427,7 +426,8 @@ class RankDatasetAL(Dataset):
 
         return input0_token, input1_token, other
 
-    def _tokenize_pair(self, messages0: List[Dict], messages1: List[Dict]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    def _tokenize_pair(self, messages0: List[Dict],
+                       messages1: List[Dict]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Tokenize a pair of messages including audio content.
 

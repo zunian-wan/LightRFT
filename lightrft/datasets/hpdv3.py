@@ -304,11 +304,8 @@ class HPDv3PairHandler(HPDv3Handler):
     Paper: https://huggingface.co/MizzenAI/HPSv3
     Dataset Repo: https://huggingface.co/datasets/MizzenAI/HPDv3
     """
-    def parse_item(self, 
-                   item: Dict[str, Any], 
-                   visual_content: Dict[str, Any], 
-                   config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], Dict]:
+    def parse_item(self, item: Dict[str, Any], visual_content: Dict[str, Any],
+                   config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
         """
         Parse a data item into pairwise messages and metadata.
 
@@ -349,25 +346,36 @@ class HPDv3PairHandler(HPDv3Handler):
 
         # Random pick from "A" or "B" to avoid positional bias
         preference = random.choice(["A", "B"])
-        if preference == "A":   # "A" means image0 is preferred
+        if preference == "A":  # "A" means image0 is preferred
             image0, image1 = preferred_image, rejected_image
         else:
             image0, image1 = rejected_image, preferred_image
-        
-        # Build messages
-        messages = [
-            {"role": "system", "content": task_instruction},
 
-            {"role": "user", "content": [
-                {"type": "text", "text": "The following is the first image."},
-                {"type": "image", "image": image0, "max_pixels": max_pixels}
-            ]},
-            
-            {"role": "user", "content": [
-                {"type": "text", "text": "The following is the second image."},
-                {"type": "image", "image": image1, "max_pixels": max_pixels}
-            ]}
-        ]
+        # Build messages
+        messages = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "The following is the first image."
+            }, {
+                "type": "image",
+                "image": image0,
+                "max_pixels": max_pixels
+            }]
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "The following is the second image."
+            }, {
+                "type": "image",
+                "image": image1,
+                "max_pixels": max_pixels
+            }]
+        }]
 
         other = {
             "preference": preference,

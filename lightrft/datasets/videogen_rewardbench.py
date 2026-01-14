@@ -46,7 +46,7 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         data_root = os.path.dirname(path)
         for item in raw_data:
             item['data_root'] = data_root
-        
+
         # Make sure all visual files exist
         valid_data = []
         for item in raw_data:
@@ -81,16 +81,10 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         full_path_A = os.path.join(data_root, item['path_A'])
         full_path_B = os.path.join(data_root, item['path_B'])
 
-        return {
-            'video_A': {'video_local_path': full_path_A},
-            'video_B': {'video_local_path': full_path_B}
-        }
+        return {'video_A': {'video_local_path': full_path_A}, 'video_B': {'video_local_path': full_path_B}}
 
-    def parse_item(self, 
-                   item: Dict[str, Any], 
-                   media_content: Dict[str, Any], 
-                   config: Dict[str, Any]
-                   ) -> Tuple[List[Dict], Dict]:
+    def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
+                   config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
         """
         Parse a data item into messages and metadata.
 
@@ -127,7 +121,7 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         task_instruction = task_instruction_template.format(prompt=prompt_text)
 
         # Identify preferred and rejected videos
-        overall_label = item["Overall"] # "A" or "B" or "same"
+        overall_label = item["Overall"]  # "A" or "B" or "same"
         if overall_label == "A":
             preferred_video, rejected_video = video_A, video_B
             preferred_fps, rejected_fps = item.get("fps_A", 2.0), item.get("fps_B", 2.0)
@@ -140,7 +134,6 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         else:
             raise ValueError(f"Invalid Overall label: {overall_label}")
 
-        
         if overall_label == "same":
             preference = "C"
             video0, video1 = preferred_video, rejected_video
@@ -163,19 +156,32 @@ class VideoGenRewardBenchPairHandler(BaseDataHandler):
         fps = config["video_fps"]
 
         # Build messages
-        messages = [
-            {"role": "system", "content": task_instruction},
-
-            {"role": "user", "content": [
-                {"type": "text", "text": "The following is the first video."},
-                {"type": "video", "video": video0, "fps": fps, "max_pixels": max_pixels}
-            ]},
-            
-            {"role": "user", "content": [
-                {"type": "text", "text": "The following is the second video."},
-                {"type": "video", "video": video1, "fps": fps, "max_pixels": max_pixels}
-            ]}
-        ]
+        messages = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "The following is the first video."
+            }, {
+                "type": "video",
+                "video": video0,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "The following is the second video."
+            }, {
+                "type": "video",
+                "video": video1,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }]
 
         other = {
             "preference": preference,

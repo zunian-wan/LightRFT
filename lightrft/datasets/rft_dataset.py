@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 
 from .utils import load_multimodal_content
 from lightrft.datasets import (
-    RapidataI2VPairHandler, 
-    RapidataT2VPairHandler, 
+    RapidataI2VPairHandler,
+    RapidataT2VPairHandler,
     VideoGenRewardBenchPairHandler,
     HPDv3PairHandler,
     OmniRewardBenchT2IPairHandler,
@@ -61,15 +61,15 @@ class RFTDatasetVL(Dataset):
         )
     """
     def __init__(
-            self, 
-            dataset_paths: List[str], 
-            processor: AutoProcessor, 
-            tokenizer: AutoTokenizer, 
-            strategy = None,
-            max_length: int = 4096, 
-            config: Dict[str, Any] = None,
-        ):
-        
+        self,
+        dataset_paths: List[str],
+        processor: AutoProcessor,
+        tokenizer: AutoTokenizer,
+        strategy=None,
+        max_length: int = 4096,
+        config: Dict[str, Any] = None,
+    ):
+
         super().__init__()
         self.processor = processor
         self.tokenizer = tokenizer
@@ -84,7 +84,7 @@ class RFTDatasetVL(Dataset):
             self.process_vision_info = process_vision_info
         else:
             raise NotImplementedError(f"Processor type {self.processor.__class__.__name__} not supported yet.")
-        
+
         self.handlers = {
             "rapidata-i2v": RapidataI2VPairHandler(),
             "rapidata-t2v": RapidataT2VPairHandler(),
@@ -109,7 +109,7 @@ class RFTDatasetVL(Dataset):
 
             if source not in self.handlers:
                 raise NotImplementedError(f"The data handler for source {source} is not implemented.")
-            
+
             handler = self.handlers[source]
             try:
                 loaded_items = handler.load_data(path)
@@ -118,7 +118,7 @@ class RFTDatasetVL(Dataset):
                 self.data.extend(loaded_items)
             except Exception as e:
                 logger.error(f"Failed to load data {path} (source: {source}): {e}")
-            
+
         logger.info(f"Loaded {len(self.data)} items in total, sources: {[s for s in dataset_paths]}")
         random.shuffle(self.data)
 
@@ -145,9 +145,9 @@ class RFTDatasetVL(Dataset):
         """
         item = self.data[idx]
         source = item["source"]
-        
+
         handler = self.handlers[source]
-        
+
         # Get paths for all media content
         media_info = handler.get_media_info(item)
 
@@ -185,11 +185,15 @@ class RFTDatasetVL(Dataset):
         messages = [msg for msg in messages if msg["role"] != "assistant"]
 
         input_text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        
-        image_inputs, video_inputs = self.process_vision_info(messages, return_video_kwargs=False)
+
+        # Support Qwen3-VL video metadata
+        # Setting return_video_metadata=True will return video_inputs as a list of (video, metadata)
+        image_inputs, video_inputs = self.process_vision_info(
+            messages, return_video_kwargs=False, return_video_metadata=True
+        )
 
         return input_text, image_inputs, video_inputs
-    
+
     def collate_fn(self, batch):
         """
         Collate a batch of samples into a list of tuples.

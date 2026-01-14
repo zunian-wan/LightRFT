@@ -37,14 +37,14 @@ class GenAIBenchPairHandler(BaseDataHandler):
             handler = GenAIBenchPairHandler()
             data = handler.load_data("path/to/GenAI-Bench/data.parquet")
         """
-        
+
         if os.path.isdir(path):
             files = sorted(glob.glob(os.path.join(path, "*.parquet")))
         elif os.path.isfile(path):
             files = [path]
         else:
             files = sorted(glob.glob(path))
-            
+
         if not files:
             logger.warning(f"No parquet files found at path: {path}")
             return []
@@ -53,10 +53,10 @@ class GenAIBenchPairHandler(BaseDataHandler):
         for f in files:
             data_table = pq.read_table(f)
             raw_items = [{name: col[i].as_py()
-                         for name, col in zip(data_table.column_names, data_table.itercolumns())}
-                        for i in range(data_table.num_rows)]
+                          for name, col in zip(data_table.column_names, data_table.itercolumns())}
+                         for i in range(data_table.num_rows)]
             all_raw_items.extend(raw_items)
-        
+
         expanded_data = []
         for item in all_raw_items:
             human_ratings = item.get('HumanRatings', {})
@@ -65,10 +65,10 @@ class GenAIBenchPairHandler(BaseDataHandler):
 
             # Dynamically get models that have both ratings and image data in the current item
             valid_models = [m for m in human_ratings.keys() if m in item and item[m] is not None]
-            
+
             # Calculate mean rating for each valid model
             mean_ratings = {m: np.mean(human_ratings[m]) for m in valid_models}
-            
+
             # Generate all pairs (A, B) from valid models
             for i in range(len(valid_models)):
                 for j in range(i + 1, len(valid_models)):
@@ -77,18 +77,18 @@ class GenAIBenchPairHandler(BaseDataHandler):
 
                     r1 = mean_ratings[m1]
                     r2 = mean_ratings[m2]
-                    
+
                     # Store as a pair if there is a preference (or handle ties)
-                    # For evaluation, we only care about clear preferences usually, 
+                    # For evaluation, we only care about clear preferences usually,
                     # but GenAI-Bench might have ties.
-                    
+
                     if r1 > r2:
-                        preference = 'A' # m1 is better
+                        preference = 'A'  # m1 is better
                     elif r2 > r1:
-                        preference = 'B' # m2 is better
+                        preference = 'B'  # m2 is better
                     else:
-                        preference = 'C' # Tie
-                    
+                        preference = 'C'  # Tie
+
                     pair_item = {
                         'prompt': item['Prompt'],
                         'image1_bytes': item[m1]['bytes'],
@@ -119,10 +119,7 @@ class GenAIBenchPairHandler(BaseDataHandler):
 
             info = handler.get_media_info(item)
         """
-        return {
-            'image1': {'image_bytes': item['image1_bytes']},
-            'image2': {'image_bytes': item['image2_bytes']}
-        }
+        return {'image1': {'image_bytes': item['image1_bytes']}, 'image2': {'image_bytes': item['image2_bytes']}}
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
                    config: Dict[str, Any]) -> Tuple[List[Dict], Dict]:
@@ -178,41 +175,31 @@ class GenAIBenchPairHandler(BaseDataHandler):
             actual_preference = item['preference']
 
         # Build messages for training or evaluation
-        messages = [
-            {
-                "role": "system",
-                "content": task_instruction
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "**Image 1:**"
-                    },
-                    {
-                        "type": "image",
-                        "image": img_a,
-                        "max_pixels": max_pixels
-                    }
-                ]
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "**Image 2:**"
-                    },
-                    {
-                        "type": "image",
-                        "image": img_b,
-                        "max_pixels": max_pixels
-                    }
-                ]
-            }
-        ]
-        
+        messages = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "**Image 1:**"
+            }, {
+                "type": "image",
+                "image": img_a,
+                "max_pixels": max_pixels
+            }]
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "**Image 2:**"
+            }, {
+                "type": "image",
+                "image": img_b,
+                "max_pixels": max_pixels
+            }]
+        }]
+
         # Note that GenAI-Bench is only used for evaluation, so we do not add generation prompt here.
 
         other = {
@@ -266,39 +253,39 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
 
         with open(json_path, 'r', encoding='utf-8') as f:
             raw_data_dict = json.load(f)
-        
+
         data_root = os.path.dirname(json_path)
-        
+
         expanded_data = []
         for sample_id, item in raw_data_dict.items():
             models_data = item.get('models', {})
             model_names = list(models_data.keys())
-            
+
             # Generate all pairs (A, B)
             for i in range(len(model_names)):
                 for j in range(i + 1, len(model_names)):
                     m1 = model_names[i]
                     m2 = model_names[j]
-                    
+
                     # Verify video files exist
                     # Videos are expected in folders like data_root/ModelName/sample_id.mp4
                     v1_path = os.path.join(data_root, m1, f"{sample_id}.mp4")
                     v2_path = os.path.join(data_root, m2, f"{sample_id}.mp4")
-                    
+
                     if not os.path.exists(v1_path) or not os.path.exists(v2_path):
                         # Some models might not have all videos
                         continue
-                        
+
                     r1 = np.mean(models_data[m1])
                     r2 = np.mean(models_data[m2])
-                    
+
                     if r1 > r2:
                         preference = 'A'
                     elif r2 > r1:
                         preference = 'B'
                     else:
-                        preference = 'C' # Tie
-                    
+                        preference = 'C'  # Tie
+
                     pair_item = {
                         'id': sample_id,
                         'prompt': item['prompt'],
@@ -331,8 +318,12 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
             info = handler.get_media_info(item)
         """
         return {
-            'video1': {'video_local_path': item['video1_path']},
-            'video2': {'video_local_path': item['video2_path']}
+            'video1': {
+                'video_local_path': item['video1_path']
+            },
+            'video2': {
+                'video_local_path': item['video2_path']
+            }
         }
 
     def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
@@ -388,42 +379,32 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
             actual_preference = item['preference']
 
         # Build messages
-        messages = [
-            {
-                "role": "system",
-                "content": task_instruction
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "**Video 1:**"
-                    },
-                    {
-                        "type": "video",
-                        "video": vid_a,
-                        "fps": fps,
-                        "max_pixels": max_pixels
-                    }
-                ]
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "**Video 2:**"
-                    },
-                    {
-                        "type": "video",
-                        "video": vid_b,
-                        "fps": fps,
-                        "max_pixels": max_pixels
-                    }
-                ]
-            }
-        ]
+        messages = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "**Video 1:**"
+            }, {
+                "type": "video",
+                "video": vid_a,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "text",
+                "text": "**Video 2:**"
+            }, {
+                "type": "video",
+                "video": vid_b,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }]
 
         other = {
             "id": item["id"],

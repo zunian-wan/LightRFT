@@ -36,10 +36,8 @@ class OmniRewardBenchT2IHandler(BaseDataHandler):
         raw_data = []
         import pyarrow.parquet as pq
         data_table = pq.read_table(path)
-        raw_data = [{
-            name: col[i].as_py()
-            for name, col in zip(data_table.column_names, data_table.itercolumns())
-        }
+        raw_data = [{name: col[i].as_py()
+                     for name, col in zip(data_table.column_names, data_table.itercolumns())}
                     for i in range(data_table.num_rows)]
 
         data_root = os.path.dirname(os.path.dirname(path))
@@ -679,7 +677,7 @@ class OmniRewardBenchT2VPairHandler(OmniRewardBenchT2VHandler):
                 "fps": fps,
                 "max_pixels": max_pixels
             }]
-        },{
+        }, {
             "role": "user",
             "content": [{
                 "type": "text",
