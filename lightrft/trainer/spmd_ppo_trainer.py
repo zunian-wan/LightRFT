@@ -418,6 +418,16 @@ class SPMDPPOTrainerBase:
                         f"📏 Response Length:  {status_mean['response_length_mean']:.1f} ± {status_mean['response_length_std']:.1f} tokens"  # noqa
                     )
 
+                # Log EMA-GRPO task-level statistics for multi-task stability monitoring
+                if hasattr(self.experience_maker, "ema_moments") and self.experience_maker.ema_moments:
+                    self.strategy.print("⚙️  EMA-GRPO Statistics")
+                    for label, moments in self.experience_maker.ema_moments.items():
+                        self.strategy.print(f"   {label:10s} | std: {moments.std:.4f} | m1: {moments.m1:.4f} | m2: {moments.m2:.4f}")
+                        # Add to status_mean for wandb/tensorboard logging
+                        status_mean[f"ema/std_{label}"] = moments.std
+                        status_mean[f"ema/m1_{label}"] = moments.m1
+                        status_mean[f"ema/m2_{label}"] = moments.m2
+
                 self.strategy.print("=" * 60 + "\n")
 
         torch.cuda.empty_cache()

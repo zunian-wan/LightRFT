@@ -17,7 +17,7 @@ TBS=64   # train_batch_size
 KL=0.001
 LR=1e-6
 PROMPT_MAX_LEN=12288      # Max length of the input prompt.
-GENERATE_MAX_LEN=4096     # Max length of the generated response.
+GENERATE_MAX_LEN=1024     # Max length of the generated response.
 
 # --- Multi-modal Settings ---
 limit_mm_image_per_prompt=2
@@ -99,7 +99,9 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --train_batch_size ${TBS} \
    --micro_rollout_batch_size 8 \
    --rollout_batch_size ${RBS} \
-   --advantage_estimator group_norm \
+   --advantage_estimator ema_grpo \
+   --ema_grpo_beta 0.99 \
+   --ema_grpo_clipping_stop_step 200 \
    --max_epochs 1 \
    --num_episodes ${EPISODE} \
    --lr_warmup_ratio ${WARMUP} \
@@ -114,14 +116,13 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --prompt_data $DATA_PATH \
    --flash_attn \
    --gradient_checkpointing \
-   --save_steps 20 \
-   --max_ckpt_num 5 \
+   --save_steps 100 \
+   --max_ckpt_num 2 \
    --engine_mem_util 0.8 \
    --engine_tp_size $ENGINE_TP \
    --enable_engine_sleep \
    --system_prompt_path "$SYSTEM_PROMPT_PATH" \
    --l2 1.0e-2 \
-   --freeze_prefix \
    --adam_offload \
    --limit_mm_image_per_prompt $limit_mm_image_per_prompt \
    --limit_mm_video_per_prompt $limit_mm_video_per_prompt \
@@ -132,3 +133,6 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --max_pixels $max_pixels \
    --trajectory_analysis \
    2>&1 | tee "log/lightrft_grm_vl_rl_${NODE_RANK}_$(date +%Y%m%d_%H%M%S).log"
+
+
+#  --freeze_prefix \

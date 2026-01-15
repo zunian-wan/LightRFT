@@ -424,6 +424,7 @@ class PPOTrainerVL(ABC):
                         all_videos=rand_videos,
                         all_references=rand_references,
                         all_labels=rand_labels,
+                        global_step=steps,
                         **self.generate_kwargs
                     )
                 ):

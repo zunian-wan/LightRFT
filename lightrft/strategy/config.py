@@ -121,6 +121,12 @@ class StrategyConfig:
     # (str): KL divergence estimator method, defaults to "mean"
     kl_estimator: str = "k3"
 
+    # EMA-GRPO parameters
+    # (float): Exponential moving average beta factor for reward tracking, defaults to 0.99
+    ema_grpo_beta: float = 0.99
+    # (int): Number of steps to apply clipping in EMA-GRPO, 0 means always on, defaults to 0
+    ema_grpo_clipping_stop_step: int = 0
+
     # FSDP specific parameters
     # (bool): Use mixed precision matrix multiplication data, defaults to False
     mixed_mm_data: bool = False

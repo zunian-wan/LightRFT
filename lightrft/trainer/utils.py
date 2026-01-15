@@ -277,6 +277,50 @@ class RunningMoments:
         return xs_mean.item(), xs_std.item()
 
 
+class EMAMoments:
+    """
+    Exponential Moving Average moments tracker for rewards.
+    Used in EMA-GRPO to stabilize multi-task optimization.
+    
+    Formula:
+    m1 = beta * m1 + (1 - beta) * batch_mean
+    m2 = beta * m2 + (1 - beta) * batch_mean_square
+    std = sqrt(m2 - m1^2)
+    """
+    def __init__(self, beta: float = 0.99):
+        self.beta = beta
+        self.m1 = 0.0  # EMA of mean
+        self.m2 = 0.0  # EMA of mean square
+        self.count = 0
+        self.std = 1.0
+
+    @torch.no_grad()
+    def update(self, rewards: torch.Tensor) -> float:
+        """
+        Update EMA statistics with a new batch of rewards.
+        """
+        if rewards.numel() == 0:
+            return self.std
+
+        batch_mean = rewards.mean().item()
+        batch_m2 = (rewards ** 2).mean().item()
+        
+        if self.count == 0:
+            self.m1 = batch_mean
+            self.m2 = batch_m2
+        else:
+            self.m1 = self.beta * self.m1 + (1 - self.beta) * batch_mean
+            self.m2 = self.beta * self.m2 + (1 - self.beta) * batch_m2
+        
+        self.count += 1
+        
+        # Calculate global standard deviation for the task
+        var = self.m2 - (self.m1 ** 2)
+        # Numerical stability: use max(1e-4, sqrt(var))
+        self.std = max(1e-4, (var ** 0.5) if var > 0 else 1e-4)
+        return self.std
+
+
 def get_cpgd_advantages_returns(
     reward: torch.Tensor,
     action_mask: torch.Tensor,

@@ -53,7 +53,7 @@ from lightrft.trainer.experience_maker_vl import (
 
 from lightrft.utils.remote_rm_utils import remote_rm_fn
 from lightrft.utils import Timer, get_current_device
-from .utils import RunningMoments, compute_clip_fraction, get_cpgd_advantages_returns, fire_sampling
+from .utils import RunningMoments, EMAMoments, compute_clip_fraction, get_cpgd_advantages_returns, fire_sampling
 from .image_utils import normalize_images, get_images_num
 from .video_utils import normalize_videos, get_videos_num
 
@@ -922,6 +922,9 @@ class FastExperienceMaker(NaiveExperienceMaker):
             packing_samples=self.packing_samples,
         )
 
+        # Initialize EMA moments for EMA-GRPO task-level normalization
+        self.ema_moments = {}
+
     # ========================================================================
     # Public API Methods
     # ========================================================================
@@ -934,6 +937,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
         all_videos: Optional[List] = None,
         all_references: Optional[List[str]] = None,
         all_labels: Optional[List] = None,
+        global_step: Optional[int] = 0,
         **generate_kwargs,
     ) -> List[ExperienceVL]:
         """
@@ -952,6 +956,8 @@ class FastExperienceMaker(NaiveExperienceMaker):
         :type all_labels: Optional[List]
         :param all_videos: Optional videos for multimodal generation
         :type all_videos: Optional[List]
+        :param global_step: Current global training step
+        :type global_step: int
         :param generate_kwargs: Generation parameters (temperature, max_new_tokens, etc.)
         :type generate_kwargs: dict
         :return: List of Experience or ExperienceVL objects with computed advantages and returns
@@ -1013,7 +1019,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
 
         # ========== Stage 5: Reward Processing ==========
         experiences, rewards = self._process_experiences(  # GRPO's -mean / std operation is performed in this method
-            experiences, generate_kwargs.get("max_new_tokens", 1024)
+            experiences, generate_kwargs.get("max_new_tokens", 1024), global_step
         )
 
         # ========== Stage 6: Multi-Image/Video Handling ==========
@@ -1386,6 +1392,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
         self,
         experiences: List[ExperienceVL],
         max_new_tokens: int,
+        global_step: Optional[int] = 0,
     ) -> Tuple[List[ExperienceVL], List[torch.Tensor]]:
         """
         Apply reward transformations and filtering to experiences.
@@ -1399,6 +1406,8 @@ class FastExperienceMaker(NaiveExperienceMaker):
         :type experiences: List[Union[Experience, ExperienceVL]]
         :param max_new_tokens: Maximum generation length
         :type max_new_tokens: int
+        :param global_step: Current global training step, used for EMA-GRPO clipping schedule
+        :type global_step: int
         :return: Tuple of (processed_experiences, shaped_rewards)
         :rtype: Tuple[List[Union[Experience, ExperienceVL]], List[torch.Tensor]]
         """
@@ -1435,6 +1444,48 @@ class FastExperienceMaker(NaiveExperienceMaker):
             rewards = rewards.reshape(-1, config.n_samples_per_prompt).to("cuda")
             rewards = rewards - rewards.mean(-1, keepdim=True)
             rewards = rewards.flatten().to("cpu").chunk(len(experiences))
+            return experiences, rewards
+
+        elif config.advantage_estimator == "ema_grpo":
+            # EMA-GRPO: Task-specific normalization with Exponential Moving Average
+            # 1. Collect labels for all samples in the current batch
+            all_labels = []
+            for exp in experiences:
+                all_labels.extend(exp.info["labels"])
+
+            # Ensure rewards are float32 for numerical stability
+            rewards = rewards.float().to("cuda")
+
+            # 2. Update EMA statistics for each task present in this batch
+            unique_labels = list(set(all_labels))
+            for label in unique_labels:
+                if label not in self.ema_moments:
+                    self.ema_moments[label] = EMAMoments(beta=config.ema_grpo_beta)
+
+                # Indices belonging to this specific task
+                label_indices = [idx for idx, lbl in enumerate(all_labels) if lbl == label]
+                label_rewards = rewards[label_indices]
+                self.ema_moments[label].update(label_rewards)
+
+            # 3. Compute Advantage: (Reward - GroupMean) / TaskEMAStd
+            grouped_rewards = rewards.reshape(-1, config.n_samples_per_prompt)
+            group_mean = grouped_rewards.mean(-1, keepdim=True)
+            group_mean_flat = group_mean.repeat_interleave(config.n_samples_per_prompt, dim=0).flatten()
+
+            norm_rewards = torch.zeros_like(rewards)
+            for idx, label in enumerate(all_labels):
+                task_std = self.ema_moments[label].std
+                norm_rewards[idx] = (rewards[idx] - group_mean_flat[idx]) / (task_std + 1e-9)
+
+            # 4. Global clipping for early training stability
+            # Disable clipping after ema_grpo_clipping_stop_step
+            if global_step < config.ema_grpo_clipping_stop_step:
+                rewards = torch.clamp(norm_rewards, -5.0, 5.0)
+            else:
+                rewards = norm_rewards
+
+            rewards = rewards.to("cpu").chunk(len(experiences))
+
             return experiences, rewards
 
         elif config.advantage_estimator in ["group_norm", "grpo"]:
@@ -1548,7 +1599,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
                     )
                 )
 
-            elif self.advantage_estimator in ["reinforce", "rloo", "reinforce_baseline", "group_norm"]:
+            elif self.advantage_estimator in ["reinforce", "rloo", "reinforce_baseline", "group_norm", "ema_grpo"]:
                 # Compute cumulative returns
                 experience.returns = self.get_cumulative_returns(
                     final_reward, experience.action_mask, generate_kwargs["gamma"]
@@ -1806,6 +1857,7 @@ class FastExperienceMaker(NaiveExperienceMaker):
             response_length=output.response_length,
             total_length=output.total_length,
             num_actions=output.num_actions,
+            labels=output.labels,
         )
 
         # Add reward_metrics if available

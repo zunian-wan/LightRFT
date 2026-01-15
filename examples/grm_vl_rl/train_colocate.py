@@ -10,7 +10,6 @@ Key Features:
     - Rule-based verifiable rewards (Format checking and Accuracy verification)
     - Flexible strategy: DeepSpeed ZeRO or FSDP
     - Meta device initialization for memory optimization
-    - EMA (Exponential Moving Average) model support
     - Dynamic sampling and overlong buffer penalties (DAPO)
 
 Main Components:
@@ -299,7 +298,8 @@ def train(args: argparse.Namespace) -> None:
         lambd=args.lambd,
         init_kl_coef=args.init_kl_coef,
         kl_target=args.kl_target,
-        ema_beta=0.992,
+        ema_grpo_beta=args.ema_grpo_beta,
+        ema_grpo_clipping_stop_step=args.ema_grpo_clipping_stop_step,
         ptx_coef=args.ptx_coef,
         max_norm=args.max_norm,
         # for GPT generation
@@ -451,12 +451,26 @@ if __name__ == "__main__":
     parser.add_argument(
         "--advantage_estimator",
         type=str,
-        choices=["gae", "reinforce", "rloo", "reinforce_baseline", "group_norm", "cpgd", "reinforce++"],
+        choices=["gae", "reinforce", "rloo", "reinforce_baseline", "group_norm", "ema_grpo", "cpgd", "reinforce++"],
         default="gae",
-        help="Choose advantage estimation method: gae, reinforce, rloo, reinforce_baseline, group_norm, reinforce++",
+        help="Choose advantage estimation method: gae, reinforce, rloo, reinforce_baseline, group_norm, ema_grpo, cpgd, reinforce++",
     )
 
     parser.add_argument("--use_kl_loss", action="store_true", default=False, help="whether to use KL loss from GRPO")
+
+    # EMA-GRPO
+    parser.add_argument(
+        "--ema_grpo_beta", 
+        type=float, 
+        default=0.99, 
+        help="Exponential moving average factor for reward tracking in EMA-GRPO"
+    )
+    parser.add_argument(
+        "--ema_grpo_clipping_stop_step",
+        type=int,
+        default=0,
+        help="Number of global steps to apply reward clipping in EMA-GRPO. After this step, clipping is disabled."
+    )
 
     # LoRA
     parser.add_argument("--load_in_4bit", action="store_true", default=False)
@@ -524,7 +538,7 @@ if __name__ == "__main__":
     elif args.critic_pretrain is None:
         args.critic_pretrain = args.pretrain
 
-    if args.advantage_estimator in ["rloo", "reinforce_baseline", "group_norm"]:
+    if args.advantage_estimator in ["rloo", "reinforce_baseline", "group_norm", "ema_grpo"]:
         assert args.n_samples_per_prompt > 1, f"{args.advantage_estimator} requires n_samples_per_prompt > 1"
 
     if args.use_kl_loss:
