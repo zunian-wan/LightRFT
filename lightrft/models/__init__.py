@@ -7,7 +7,7 @@ from .srm_al import ScalarRewardModelAL
 from .utils import *
 from .loss import (
     GPTLMLoss, DPOLoss, KDLoss, KTOLoss, LogExpLoss, PairWiseLoss, PolicyLoss, PRMLoss, ValueLoss, VanillaKTOLoss,
-    LogSigmoidLoss, HPSLoss
+    LogSigmoidLoss, HPSLoss, ListMLELoss, RankNetLoss
 )
 # from .model import get_llm_for_sequence_regression
 # from .model_vl import get_vlm_for_sequence_regression

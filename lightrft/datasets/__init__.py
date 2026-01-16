@@ -1,5 +1,6 @@
 from .grm_dataset import GRMDataset
 from .srm_dataset import RankDatasetVL, RankDatasetAL
+from .srm_listwise_dataset import RankDatasetListwiseVL
 from .omnirewardbench import *
 from .imagegen_cot_reward import *
 from .rapidata import *

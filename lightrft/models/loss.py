@@ -528,3 +528,138 @@ class HPSLoss(nn.Module):
         labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.long)
         loss = F.cross_entropy(logits, labels)
         return loss
+
+
+class ListMLELoss(nn.Module):
+    """
+    ListMLE Loss (Plackett-Luce model).
+    Useful for listwise ranking tasks.
+    """
+    def __init__(self, temperature: float = 1.0):
+        super().__init__()
+        self.temperature = temperature
+
+    def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Compute ListMLE loss.
+
+        :param scores: Predicted scores, shape [B, K]
+        :param ranks: Ground Truth ranks (lower is better), shape [B, K]
+        :param mask: Mask for valid candidates, shape [B, K] (1 for valid, 0 for padded)
+        :return: Scalar loss
+        """
+        if mask is not None:
+            # Mask invalid scores to -inf so exp(-inf) = 0
+            scores = scores.masked_fill(~mask.bool(), float('-inf'))
+            # Mask invalid ranks to inf so they are sorted to the end
+            ranks = ranks.masked_fill(~mask.bool(), float('inf'))
+
+        # 1. Sort indices based on ranks (ascending, since lower rank is better)
+        # We want the indices of items in the order of best to worst
+        sorted_indices = torch.argsort(ranks, dim=1, descending=False)
+        
+        # 2. Gather scores in the sorted order
+        # scores[b, sorted_indices[b, i]] is the score of the i-th best item
+        sorted_scores = torch.gather(scores, 1, sorted_indices) # [B, K]
+        sorted_scores = sorted_scores / self.temperature
+
+        # 3. Compute ListMLE
+        # L = - sum_{i=1}^K log ( exp(s_i) / sum_{j=i}^K exp(s_j) )
+        #   = sum_{i=1}^K [ log(sum_{j=i}^K exp(s_j)) - s_i ]
+        
+        loss = 0
+        K = scores.shape[1]
+        
+        # Determine valid lengths if mask provided
+        if mask is not None:
+            # Gather mask to see which sorted positions are valid
+            sorted_mask = torch.gather(mask, 1, sorted_indices)
+        else:
+            sorted_mask = torch.ones_like(scores, dtype=torch.bool)
+
+        for i in range(K):
+            # If the i-th position in sorted order is invalid (padding), skip it
+            # We can use the mask to zero out loss contribution
+            
+            s_i = sorted_scores[:, i]
+            s_rest = sorted_scores[:, i:]
+            
+            # LogSumExp over the remaining items
+            lse = torch.logsumexp(s_rest, dim=1)
+            
+            term = (lse - s_i)
+            
+            # Masking: only add term if the i-th item is valid
+            valid_i = sorted_mask[:, i]
+            
+            # SAFE COMPUTATION to avoid NaN (since s_i and lse can be -inf if padded)
+            # Create safe versions where -inf is 0 (only where valid_i is False)
+            # If valid_i is True, s_i and lse are guaranteed to be finite (or -inf only if model predicts -inf, which is fine-ish but unlikely) 
+            # Actually, lse includes s_i, so lse >= s_i.
+            
+            # Simply zero-out invalid positions BEFORE subtraction
+            s_i_safe = s_i.masked_fill(~valid_i.bool(), 0.0)
+            lse_safe = lse.masked_fill(~valid_i.bool(), 0.0)
+            
+            term = (lse_safe - s_i_safe)
+            
+            # Apply mask to accumulation (redundant but safe)
+            term = term * valid_i.float()
+            
+            loss += term
+            
+        return loss.mean()
+
+
+class RankNetLoss(nn.Module):
+    """
+    RankNet Loss.
+    A Listwise LogSigmoid Loss.
+    """
+    def __init__(self, margin: float = 0.0):
+        super().__init__()
+        self.margin = margin
+
+    def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Compute RankNet loss.
+
+        :param scores: Predicted scores, shape [B, K]
+        :param ranks: Ground Truth ranks, shape [B, K] (lower is better)
+        :param mask: Mask for valid candidates, shape [B, K]
+        :return: Scalar loss
+        """
+        # Construct strict valid pair mask [B, K, K]
+        if mask is not None:
+            # Both i and j must be valid
+            valid_mask_2d = mask.unsqueeze(2) * mask.unsqueeze(1) # [B, K, K]
+            
+            # For rank difference calculation, we still need to handle 'inf' carefully or use the mask.
+            # Let's clean ranks for calculation (set padding ranks to a very large number, preventing weirdness)
+            ranks_clean = ranks.masked_fill(~mask.bool(), 1e9)
+            
+            # Clean scores to avoid NaN in diff (set padding to 0)
+            scores_clean = scores.masked_fill(~mask.bool(), 0.0)
+        else:
+            valid_mask_2d = torch.ones(scores.size(0), scores.size(1), scores.size(1), device=scores.device)
+            ranks_clean = ranks
+            scores_clean = scores
+
+        # score difference: s_i - s_j
+        s_diff = scores_clean.unsqueeze(2) - scores_clean.unsqueeze(1)
+        
+        # rank difference: r_i - r_j
+        # i is better than j if r_i < r_j => r_i - r_j < 0
+        r_diff = ranks_clean.unsqueeze(2) - ranks_clean.unsqueeze(1)
+        
+        # Basic pair mask: i must be better than j
+        pair_mask = (r_diff < 0).float()
+        
+        # Combine with validity mask
+        final_mask = pair_mask * valid_mask_2d.float()
+        
+        # Loss = log(1 + exp(-(s_i - s_j - margin)))
+        loss = F.softplus(-(s_diff - self.margin))
+        
+        loss = (loss * final_mask).sum() / (final_mask.sum() + 1e-8)
+        return loss

@@ -3,10 +3,12 @@ import copy
 import json
 import random
 import glob
+import pandas as pd
 from typing import List, Dict, Any, Tuple
 from itertools import combinations
 from collections import defaultdict
 from loguru import logger
+from tqdm import tqdm
 
 from .utils import BaseDataHandler
 
@@ -257,3 +259,87 @@ class ImageRewardDBHandler(BaseDataHandler):
             "classification": item["classification"],
         }
         return messages0, messages1, other
+
+
+class ImageRewardDBListwiseHandler(BaseDataHandler):
+    """
+    Listwise Data Handler for ImageRewardDB dataset.
+    """
+    task_type = "text-to-image-listwise-ranking"
+
+    def load_data(self, path: str, list_size: int = 4) -> List[Dict[str, Any]]:
+        """
+        Load ImageRewardDB from a specific parquet metadata file and build listwise ranking samples.
+
+        :param path: Full path to a .parquet metadata file.
+        :type path: str
+        """
+        if not path.endswith(".parquet"):
+            logger.error(f"ImageRewardDBListwiseHandler expects a .parquet file, got: {path}")
+            raise ValueError(f"Invalid file format: {path}")
+
+        if not os.path.exists(path):
+            logger.error(f"Metadata file not found: {path}")
+            raise FileNotFoundError(f"Metadata file not found: {path}")
+
+        dataset_root = os.path.dirname(path)
+        logger.info(f"Loading listwise data from: {path}. Root: {dataset_root}")
+
+        df = pd.read_parquet(path)
+
+        # Aggregate entries by prompt_id
+        grouped = df.groupby('prompt_id')
+        
+        listwise_samples = []
+        for pid, group in tqdm(grouped, desc="Generating listwise samples"):
+            valid_items = []
+            for _, row in group.iterrows():
+                # Rel path in parquet is usually like 'images/train_01/1.png'
+                rel_path = row['image_path']
+                full_img_path = os.path.join(dataset_root, rel_path)
+                
+                if os.path.exists(full_img_path) and os.path.getsize(full_img_path) > 0:
+                    valid_items.append({
+                        'image_path': rel_path,
+                        'rank': row['rank'],
+                        'prompt': row['prompt'],
+                        'classification': row.get('classification', 'Unknown')
+                    })
+            
+            # Require at least 2 items to form a ranking list
+            if len(valid_items) < 2:
+                continue
+
+            candidates_paths = [item['image_path'] for item in valid_items]
+            candidates_ranks = [item['rank'] for item in valid_items]
+            
+            # Construct entry
+            entry = {
+                "source": "imagerewarddb",
+                "prompt_id": pid,
+                "prompt": valid_items[0]['prompt'],
+                "candidates": candidates_paths,
+                "ranks": candidates_ranks,
+                "data_root": dataset_root,
+                "classification": valid_items[0].get('classification', 'Unknown')
+            }
+            listwise_samples.append(entry)
+
+        logger.info(f"Loaded {len(listwise_samples)} listwise samples from ImageRewardDB.")
+        return listwise_samples
+
+    def get_media_info(self, item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
+        data_root = item['data_root']
+        candidates = item['candidates']
+        
+        media_info = {}
+        for i, rel_path in enumerate(candidates):
+            full_path = os.path.join(data_root, rel_path)
+            media_info[f"image_{i}"] = {
+                "image_local_path": full_path
+            }
+        return media_info
+    
+    def parse_item(self, item, media_content, config):
+        # Dummy method to satisfy interface
+        pass
