@@ -8,7 +8,7 @@ unset HTTPS_PROXY
 #############################  kwargs ##########################
 WARMUP=0.0
 TBS=8
-LR=1e-5
+LR=5e-6
 MAX_LENGTH=4096
 FPS=2.0
 MAX_PIXELS=172800   # 360*480
@@ -42,7 +42,7 @@ PRETRAIN_PATH="/path/to/pretrained/model"
 # Save and log paths
 current_time=$(date +"%m%d%H%M")
 EXPERIMENT_NAME=LightRFT-SRM-VL-Training
-SAVE_MODEL_NAME=${EXPERIMENT_NAME}-lr$LR-listmle-imagerewarddb-qwen2.5vl3b-$current_time
+SAVE_MODEL_NAME=${EXPERIMENT_NAME}-ranknet-imagerewarddb-qwen2.5vl3b-lr_$LR-tbs_$TBS-K_$K-$current_time
 mkdir -p results/$EXPERIMENT_NAME/$SAVE_MODEL_NAME
 
 LOG_BASE=log
@@ -80,7 +80,7 @@ torchrun --nnodes $NNODES \
     --save_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
     --ckpt_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
     --train_batch_size ${TBS} \
-    --micro_train_batch_size 4 \
+    --micro_train_batch_size 8 \
     --max_epochs 5 \
     --lr_warmup_ratio ${WARMUP} \
     --prompt_max_len $MAX_LENGTH \
@@ -90,7 +90,7 @@ torchrun --nnodes $NNODES \
     --train_data $DATA_PATH \
     --gradient_checkpointing \
     --save_steps 100 \
-    --max_ckpt_num 5 \
+    --max_ckpt_num 2 \
     --use_tensorboard "tensorboard/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME}" \
     --use_wandb "${WANDB_API_KEY}" \
     --wandb_project "${WANDB_PROJECT}" \
@@ -111,4 +111,3 @@ torchrun --nnodes $NNODES \
 #    --fsdp \
 #    --adam_offload \
 #    --probing_layer 17 \  # Default is -1, the last layer
-
