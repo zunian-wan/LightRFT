@@ -91,7 +91,6 @@ torchrun --nnodes $NNODES \
     --gradient_checkpointing \
     --save_steps 100 \
     --max_ckpt_num 2 \
-    --use_tensorboard "tensorboard/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME}" \
     --use_wandb "${WANDB_API_KEY}" \
     --wandb_project "${WANDB_PROJECT}" \
     --wandb_run_name "${WANDB_RUN_NAME}" \

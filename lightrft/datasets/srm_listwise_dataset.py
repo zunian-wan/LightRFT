@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, AutoProcessor
 from loguru import logger
 
 from .utils import load_multimodal_content, zero_pad_sequences
-from .image_reward_db import ImageRewardDBHandler, ImageRewardDBListwiseHandler
+from .image_reward_db import ImageRewardDBPairwiseHandler, ImageRewardDBListwiseHandler
 
 class RankDatasetListwiseVL(Dataset):
     """

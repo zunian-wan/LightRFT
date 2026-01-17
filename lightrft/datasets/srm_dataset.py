@@ -12,7 +12,7 @@ from transformers import AutoTokenizer, AutoProcessor
 from .hpdv3 import HPDv3Handler
 from .rapidata import RapidataT2VHandler, RapidataI2VHandler
 from .omnirewardbench import OmniRewardBenchT2VHandler, OmniRewardBenchT2IHandler, OmniRewardBenchT2AHandler
-from .image_reward_db import ImageRewardDBHandler
+from .image_reward_db import ImageRewardDBPairwiseHandler
 from .audio_alpaca import AudioAlpacaHandler
 from .utils import zero_pad_sequences, load_multimodal_content
 
@@ -89,7 +89,7 @@ class RankDatasetVL(Dataset):
             "rapidata-i2v": RapidataI2VHandler(),
             "omnirewardbench-t2v": OmniRewardBenchT2VHandler(),
             "omnirewardbench-t2i": OmniRewardBenchT2IHandler(),
-            "imagerewarddb": ImageRewardDBHandler(),
+            "imagerewarddb": ImageRewardDBPairwiseHandler(),
         }
 
         # Load data from all specified dataset paths

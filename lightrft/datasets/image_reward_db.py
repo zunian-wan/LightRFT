@@ -1,21 +1,18 @@
 import os
 import copy
-import json
 import random
-import glob
 import pandas as pd
 from typing import List, Dict, Any, Tuple
 from itertools import combinations
-from collections import defaultdict
 from loguru import logger
 from tqdm import tqdm
 
 from .utils import BaseDataHandler
 
 
-class ImageRewardDBHandler(BaseDataHandler):
+class ImageRewardDBPairwiseHandler(BaseDataHandler):
     """
-    Data Handler for ImageRewardDB dataset.
+    Data Handler for ImageRewardDB dataset for pairwise ranking.
 
     Paper: https://arxiv.org/abs/2304.05977
     Dataset Repo: https://huggingface.co/datasets/zai-org/ImageRewardDB
@@ -44,41 +41,32 @@ class ImageRewardDBHandler(BaseDataHandler):
             data = handler.load_data("path/to/ImageRewardDB")
         """
 
-        # Locate all JSON shard files
-        # Expected layout examples: train_01/train_01.json, train_02/train_02.json, ...
-        search_pattern = os.path.join(path, "**", "*.json")
-        json_files = glob.glob(search_pattern, recursive=True)
+        if not path.endswith(".parquet"):
+            logger.error(f"ImageRewardDBHandler expects a .parquet file, got: {path}")
+            raise ValueError(f"Invalid file format: {path}")
 
-        if not json_files:
-            print(f"No JSON files found under: {path}. Please verify the dataset path.")
-            return
+        if not os.path.exists(path):
+            logger.error(f"Metadata file not found: {path}")
+            raise FileNotFoundError(f"Metadata file not found: {path}")
 
-        print(f"Found {len(json_files)} JSON files. Starting to load data...")
+        dataset_root = os.path.dirname(path)
+        logger.info(f"Loading data from: {path}. Root: {dataset_root}")
 
-        # Aggregate entries by prompt_id
-        # Structure: { "prompt_id_1": [img_info1, img_info2, ...], ... }
-        grouped_data = defaultdict(list)
-        for json_path in json_files:
-            try:
-                with open(json_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    for item in data:
-                        grouped_data[item['prompt_id']].append(item)
-            except Exception as e:
-                print(f"Error reading file {json_path}: {e}")
+        df = pd.read_parquet(path)
+        grouped_data = df.groupby('prompt_id')
 
         print(f"Aggregated {len(grouped_data)} unique prompt groups. Generating pairs...")
 
         # Construct pairs
         preference_pairs = []
         skipped_files_count = 0
-        for pid, items in grouped_data.items():
+        for pid, group in tqdm(grouped_data, desc="Generating pairs"):
+            items = group.to_dict('records')
             # Filter out items with missing or empty image files
             valid_items = []
-            dataset_root = os.path.dirname(os.path.dirname(path))
+            # dataset_root is defined above
             for item in items:
                 full_img_path = os.path.join(dataset_root, item['image_path'])
-                # import ipdb; ipdb.set_trace()
                 if os.path.exists(full_img_path) and os.path.getsize(full_img_path) > 0:
                     valid_items.append(item)
                 else:
