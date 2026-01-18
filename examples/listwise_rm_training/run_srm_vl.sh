@@ -7,7 +7,7 @@ unset HTTPS_PROXY
 
 #############################  kwargs ##########################
 WARMUP=0.0
-TBS=8
+TBS=32
 LR=5e-6
 MAX_LENGTH=4096
 FPS=2.0
@@ -41,7 +41,7 @@ PRETRAIN_PATH="/path/to/pretrained/model"
 
 # Save and log paths
 current_time=$(date +"%m%d%H%M")
-EXPERIMENT_NAME=LightRFT-SRM-VL-Training
+EXPERIMENT_NAME=LightRFT-SRM-VL-List-Training
 SAVE_MODEL_NAME=${EXPERIMENT_NAME}-ranknet-imagerewarddb-qwen2.5vl3b-lr_$LR-tbs_$TBS-K_$K-$current_time
 mkdir -p results/$EXPERIMENT_NAME/$SAVE_MODEL_NAME
 
@@ -49,7 +49,7 @@ LOG_BASE=log
 mkdir -p $LOG_BASE
 
 # Wandb settings
-WANDB_API_KEY="a0cd13724fadf91725c05f05b6d6611c7d856b49"
+WANDB_API_KEY="your_wandb_key"
 WANDB_PROJECT=${EXPERIMENT_NAME}
 WANDB_RUN_NAME="${SAVE_MODEL_NAME}"
 export WANDB_MODE="offline"
