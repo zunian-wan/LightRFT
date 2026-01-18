@@ -558,6 +558,7 @@ def test_scalar_rm(
         with open(os.path.join(final_save_dir, "evaluation_info.txt"), "w") as f:
             f.write(f"Dataset paths: {data_path}\n")
             f.write(f"Model path: {model_path}\n")
+            f.write(f"Task Instruction: {config['task_instruction']}\n")
             f.write(f"Accuracy: {accuracy*100:.2f}% ({evaluator.correct}/{evaluator.total})\n")
             if mean_gaps:
                 f.write("Mean Reward Gap per head (score_chosen - score_reject):\n")
@@ -627,10 +628,6 @@ if __name__ == "__main__":
             "evaluator": HPDv3Evaluator(),
             "data_path": ["hpdv3:/path/to/HPDv3/test.json"],
             "task_instruction": T2I_TASK_INSTRUCTION,
-            "pooling_method": "attn",
-            "scale_for_train": True,
-            "probing_layer": -1,
-            "head_types": ["preference"],
             "max_pixels": max_pixels,
         },
         {
@@ -638,10 +635,6 @@ if __name__ == "__main__":
             "evaluator": OmniRewardBenchEvaluator(),
             "data_path": ["omnirewardbench-t2i:/path/to/OmniRewardBench/text_to_image/test-00000-of-00001.parquet"],
             "task_instruction": T2I_TASK_INSTRUCTION,
-            "pooling_method": "attn",
-            "scale_for_train": True,
-            "probing_layer": -1,
-            "head_types": ["preference"],
             "max_pixels": max_pixels,
         },
         {
@@ -649,10 +642,6 @@ if __name__ == "__main__":
             "evaluator": GenAIBenchEvaluator(),
             "data_path": ["genai-bench:/path/to/GenAI-Bench/data"],
             "task_instruction": T2I_TASK_INSTRUCTION,
-            "pooling_method": "attn",
-            "scale_for_train": True,
-            "probing_layer": -1,
-            "head_types": ["preference"],
             "max_pixels": max_pixels,
         },
         {
@@ -660,10 +649,6 @@ if __name__ == "__main__":
             "evaluator": ImageRewardDBEvaluator(),
             "data_path": ["imagerewarddb:/path/to/imagerewarddb/test"],
             "task_instruction": T2I_TASK_INSTRUCTION,
-            "pooling_method": "attn",
-            "scale_for_train": True,
-            "probing_layer": -1,
-            "head_types": ["preference"],
             "max_pixels": max_pixels,
         },
     ]

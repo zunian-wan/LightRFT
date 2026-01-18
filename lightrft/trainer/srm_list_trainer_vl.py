@@ -9,17 +9,14 @@ Weights & Biases or TensorBoard.
 """
 
 import os
-import json
 from tqdm import tqdm
-from typing import Tuple, Dict
 
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer
-import torch.distributed as dist
 
-from lightrft.models import ListMLELoss, RankNetLoss, pad_to_length
-from lightrft.utils import DistributedSampler, all_gather_and_flatten, all_reduce_dict
+from lightrft.models import ListMLELoss, RankNetLoss
+from lightrft.utils import DistributedSampler
 
 
 class SRMListTrainerVL:
@@ -110,6 +107,35 @@ class SRMListTrainerVL:
             log_dir = os.path.join(self.strategy.args.use_tensorboard, strategy.args.wandb_run_name)
             self._tensorboard = SummaryWriter(log_dir=log_dir)
 
+    def compute_listwise_acc(self, scores, ranks, mask=None):
+        """
+        Compute pair-wise accuracy for listwise predictions.
+        :param scores: [B, K]
+        :param ranks: [B, K]
+        :param mask: [B, K]
+        :return: scalar accuracy
+        """
+        # score difference: s_i - s_j
+        s_diff = scores.unsqueeze(2) - scores.unsqueeze(1)
+        # rank difference: r_i - r_j (smaller rank is better)
+        r_diff = ranks.unsqueeze(2) - ranks.unsqueeze(1)
+
+        # We only care about pairs where rank i < rank j
+        pair_mask = (r_diff < 0)
+
+        if mask is not None:
+            # Both i and j must be valid
+            valid_mask_2d = mask.unsqueeze(2) * mask.unsqueeze(1)
+            pair_mask = pair_mask * valid_mask_2d.bool()
+
+        # Correct if s_i > s_j
+        correct = (s_diff > 0) & pair_mask
+
+        total_pairs = pair_mask.sum()
+        if total_pairs == 0:
+            return torch.tensor(0.0, device=scores.device)
+
+        return correct.sum().float() / total_pairs
 
     def fit(self, args, consumed_samples=0, num_update_steps_per_epoch=None) -> None:
         """
@@ -130,6 +156,7 @@ class SRMListTrainerVL:
         head_types = self.model.head_types
         # Stats tracking
         loss_mean = {ht: 0.0 for ht in head_types}
+        acc_mean = {ht: 0.0 for ht in head_types}
         total_loss_mean = 0.0
 
         for epoch in range(start_epoch, self.epochs):
@@ -177,6 +204,7 @@ class SRMListTrainerVL:
 
                 total_loss = 0.0
                 head_loss = {}
+                head_acc = {}
 
                 for head_type in head_types:
                     scores = scores_dict.get(head_type)
@@ -196,11 +224,16 @@ class SRMListTrainerVL:
                     # Compute Listwise Loss
                     loss = self.loss_fn(full_scores, ranks, mask=candidate_masks)
                     
+                    # Compute Accuracy
+                    acc = self.compute_listwise_acc(full_scores, ranks, mask=candidate_masks)
+                    
                     head_loss[head_type] = loss
+                    head_acc[head_type] = acc
                     total_loss += loss
                     
                     # Update stats
                     loss_mean[head_type] = loss_mean[head_type] * 0.9 + 0.1 * loss.item()
+                    acc_mean[head_type] = acc_mean[head_type] * 0.9 + 0.1 * acc.item()
 
                 total_loss_mean = total_loss_mean * 0.9 + 0.1 * total_loss.item()
                 
@@ -217,6 +250,8 @@ class SRMListTrainerVL:
                 for head_type in head_types:
                     logs_dict[f"{head_type}_loss"] = head_loss.get(head_type, torch.tensor(0.0)).item()
                     logs_dict[f"{head_type}_loss_mean"] = loss_mean[head_type]
+                    logs_dict[f"{head_type}_acc"] = head_acc.get(head_type, torch.tensor(0.0)).item()
+                    logs_dict[f"{head_type}_acc_mean"] = acc_mean[head_type]
 
                 # Reduce logs
                 for k in logs_dict.keys():
@@ -298,78 +333,81 @@ class SRMListTrainerVL:
         )
         self.model.eval()
         
-        loss_sum = 0
+        head_types = self.model.head_types
+        loss_sums = {ht: 0.0 for ht in head_types}
+        acc_sums = {ht: 0.0 for ht in head_types}
         total_batches = 0
         
-        try:
-            with torch.no_grad():
-                for batch in eval_dataloader:
-                    device = torch.cuda.current_device()
-                    
-                    input_ids = batch["input_ids"].to(device)
-                    attention_mask = batch["attention_mask"].to(device)
-                    pixel_values = batch.get("pixel_values")
-                    image_grid_thw = batch.get("image_grid_thw")
-                    ranks = batch["ranks"].to(device)
-                    candidate_masks = batch.get("candidate_masks")
-                    if candidate_masks is not None:
-                        candidate_masks = candidate_masks.to(device)
-                        
-                    if pixel_values is not None:
-                        pixel_values = pixel_values.to(device)
-                        image_grid_thw = image_grid_thw.to(device)
-                        
-                    B, K = ranks.shape
-                    
-                    scores_dict = self.model(
-                        sequences=input_ids,
-                        attention_mask=attention_mask,
-                        pixel_values=pixel_values,
-                        image_grid_thw=image_grid_thw,
-                    )
-                    
-                    batch_loss = 0
-                    valid_head = False
-                    for head_type in self.model.head_types:
-                        scores = scores_dict.get(head_type)
-                        if scores is None: continue
-                        
-                        # Recover scores structure: [Total_Valid] -> [B, max_K]
-                        scores_flat = scores.view(-1)
-                        full_scores = torch.full((B, K), float('-inf'), device=device, dtype=scores.dtype)
-                        
-                        # Use candidate_masks (boolean) to scatter valid scores back
-                        mask_bool = candidate_masks.bool()
-                        full_scores[mask_bool] = scores_flat
-                        
-                        batch_loss += self.loss_fn(full_scores, ranks, mask=candidate_masks)
-                        valid_head = True
-                    
-                    if valid_head:
-                        loss_sum += batch_loss.item()
-                        total_batches += 1
-                    step_bar.update()
-
-            mean_loss = loss_sum / total_batches if total_batches > 0 else 0.0
-            
-            # Log evaluation metrics
-            logs_dict = {"eval_loss": mean_loss}
-            # Simple all_reduce mean 
-            # (assuming balanced batches, otherwise we need weighted average, 
-            # but for logging this is usually fine)
-            for k in logs_dict.keys():
-                logs_dict[k] = self.strategy.all_reduce(logs_dict[k]) / self.strategy.get_world_size() # Average across ranks?
-            
-            if self.strategy.is_rank_0():
-                self.strategy.print(f"Eval steps {steps}: Loss={logs_dict['eval_loss']}")
+        with torch.no_grad():
+            for batch in eval_dataloader:
+                device = torch.cuda.current_device()
                 
-                if self._wandb is not None:
-                    logs = {"eval/%s" % k: v for k, v in {**logs_dict, "global_step": steps}.items()}
-                    self._wandb.log(logs)
-                elif self._tensorboard is not None:
-                    for k, v in logs_dict.items():
-                        self._tensorboard.add_scalar(f"eval/{k}", v, steps)
-        finally:
-            self.model.train()
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+                pixel_values = batch.get("pixel_values")
+                image_grid_thw = batch.get("image_grid_thw")
+                ranks = batch["ranks"].to(device)
+                candidate_masks = batch.get("candidate_masks")
+                if candidate_masks is not None:
+                    candidate_masks = candidate_masks.to(device)
+                    
+                if pixel_values is not None:
+                    pixel_values = pixel_values.to(device)
+                    image_grid_thw = image_grid_thw.to(device)
+                    
+                B, K = ranks.shape
+                
+                scores_dict = self.model(
+                    sequences=input_ids,
+                    attention_mask=attention_mask,
+                    pixel_values=pixel_values,
+                    image_grid_thw=image_grid_thw,
+                )
+                
+                for head_type in head_types:
+                    scores = scores_dict.get(head_type)
+                    if scores is None: continue
+                    
+                    # Recover scores structure
+                    scores_flat = scores.view(-1)
+                    full_scores = torch.full((B, K), float('-inf'), device=device, dtype=scores.dtype)
+                    mask_bool = candidate_masks.bool()
+                    full_scores[mask_bool] = scores_flat
+                    
+                    loss = self.loss_fn(full_scores, ranks, mask=candidate_masks)
+                    acc = self.compute_listwise_acc(full_scores, ranks, mask=candidate_masks)
+                    
+                    loss_sums[head_type] += loss.item()
+                    acc_sums[head_type] += acc.item()
+                
+                total_batches += 1
+                step_bar.update()
+
+        # Log evaluation metrics
+        logs_dict = {}
+        for head_type in head_types:
+            mean_loss = loss_sums[head_type] / total_batches if total_batches > 0 else 0.0
+            mean_acc = acc_sums[head_type] / total_batches if total_batches > 0 else 0.0
+            logs_dict[f"eval_{head_type}_loss"] = mean_loss
+            logs_dict[f"eval_{head_type}_acc"] = mean_acc
+
+        # Simple all_reduce (defaults to mean)
+        for k in logs_dict.keys():
+            logs_dict[k] = self.strategy.all_reduce(logs_dict[k])
+        
+        if self.strategy.is_rank_0():
+            log_str = f"Eval steps {steps}: "
+            for head_type in head_types:
+                log_str += f"{head_type}_Loss={logs_dict[f'eval_{head_type}_loss']:.4f}, {head_type}_Acc={logs_dict[f'eval_{head_type}_acc']:.4f} | "
+            self.strategy.print(log_str)
+            
+            if self._wandb is not None:
+                logs = {"eval/%s" % k: v for k, v in {**logs_dict, "global_step": steps}.items()}
+                self._wandb.log(logs)
+            elif self._tensorboard is not None:
+                for k, v in logs_dict.items():
+                    self._tensorboard.add_scalar(f"eval/{k}", v, steps)
+        
+        self.model.train()
 
 

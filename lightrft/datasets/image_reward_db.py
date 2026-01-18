@@ -215,7 +215,7 @@ class ImageRewardDBPairwiseHandler(BaseDataHandler):
                     "type": "image",
                     "image": image0,
                     "max_pixels": max_pixels
-                }  # to save memory
+                }
                             ]
             }
         ]

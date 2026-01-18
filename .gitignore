@@ -2,6 +2,8 @@
 ### Example user template template
 ### Example user template
 
+hf_ckpts/
+
 # IntelliJ project files
 .idea
 *.iml

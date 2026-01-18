@@ -7,13 +7,13 @@ unset HTTPS_PROXY
 
 #############################  kwargs ##########################
 WARMUP=0.0
-TBS=32
+TBS=32               # Training batch size
 LR=5e-6
 MAX_LENGTH=4096
 FPS=2.0
 MAX_PIXELS=172800   # 360*480
+LOSS_TYPE=ranknet   # Options: listmle, ranknet
 K=6                 # List size, set to 0 to use all candidates in each sample
-
 
 # Path to training data
 data_files=(
@@ -41,7 +41,7 @@ PRETRAIN_PATH="/path/to/pretrained/model"
 # Save and log paths
 current_time=$(date +"%m%d%H%M")
 EXPERIMENT_NAME=LightRFT-SRM-VL-List-Training
-SAVE_MODEL_NAME=${EXPERIMENT_NAME}-ranknet-imagerewarddb-qwen2.5vl3b-lr_$LR-tbs_$TBS-K_$K-$current_time
+SAVE_MODEL_NAME=${EXPERIMENT_NAME}-$LOSS_TYPE-imagerewarddb-qwen2.5vl3b-lr_$LR-tbs_$TBS-K_$K-$current_time
 mkdir -p results/$EXPERIMENT_NAME/$SAVE_MODEL_NAME
 
 LOG_BASE=log
@@ -95,7 +95,7 @@ torchrun --nnodes $NNODES \
     --wandb_run_name "${WANDB_RUN_NAME}" \
     --l2 1.0e-4 \
     --flash_attn \
-    --loss_type ranknet \
+    --loss_type $LOSS_TYPE \
     --margin 0.1 \
     --list_size $K \
     --scale_for_train \
