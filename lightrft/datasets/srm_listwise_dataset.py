@@ -152,11 +152,9 @@ class RankDatasetListwiseVL(Dataset):
             
             # Prepare text using chat template
             text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            
-            # Process (Tokenize + Image Preprocess)
-            # image_inputs = self.image_processor(images=[image], videos=None, return_tensors="pt") 
-            # We use processor directly for integrated handling if available
-            
+            if not text.endswith(self.tokenizer.eos_token):
+                text += " " + self.tokenizer.eos_token
+        
             inputs = self.processor(
                 text=[text],
                 images=[image],

@@ -217,6 +217,94 @@ class GenAIBenchPairHandler(BaseDataHandler):
         return messages, other
 
 
+class GenAIBenchPointwiseHandler(GenAIBenchPairHandler):
+    """
+    Data Handler for GenAI-Bench dataset adapted for Pointwise Scalar Reward Model (SRM) training/evaluation.
+    """
+
+    def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
+                   config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into two message sequences and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions and max_pixels
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+        """
+        image1 = media_content['image1']
+        image2 = media_content['image2']
+
+        if not all([image1, image2]):
+            raise ValueError("Missing visual content for 'image1' or 'image2'.")
+
+        # Get generation prompt from data item
+        prompt_text = item["prompt"]
+
+        # Get system prompts from config
+        task_instruction_template = get_task_instructions(self, config)
+        task_instruction = task_instruction_template.format(prompt=prompt_text)
+
+        # Get max_pixels from config
+        max_pixels = config["max_pixels"]
+
+        # Random flip to avoid positional bias
+        flip = random.random() > 0.5
+        if flip:
+            img_a, img_b = image2, image1
+            if item['preference'] == 'A':
+                actual_preference = 'B'
+            elif item['preference'] == 'B':
+                actual_preference = 'A'
+            else:
+                actual_preference = 'C'
+        else:
+            img_a, img_b = image1, image2
+            actual_preference = item['preference']
+
+        # Build messages for SRM (separate sequences)
+        messages0 = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "image",
+                "image": img_a,
+                "max_pixels": max_pixels
+            }]
+        }]
+
+        messages1 = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "image",
+                "image": img_b,
+                "max_pixels": max_pixels
+            }]
+        }]
+
+        other = {
+            "preference": actual_preference,
+            "reward_rule_label": "general",
+            "prompt": prompt_text,
+            "model1": item['model1'] if not flip else item['model2'],
+            "model2": item['model2'] if not flip else item['model1'],
+            "index": item['index'],
+            "source": item.get("source", "genai_bench")
+        }
+
+        return messages0, messages1, other
+
+
 class GenAIBenchVideoPairHandler(BaseDataHandler):
     """
     Data Handler for GenAI-Bench-Video dataset.
@@ -419,3 +507,94 @@ class GenAIBenchVideoPairHandler(BaseDataHandler):
         }
 
         return messages, other
+
+
+class GenAIBenchVideoPointwiseHandler(GenAIBenchVideoPairHandler):
+    """
+    Data Handler for GenAI-Bench-Video dataset adapted for Pointwise Scalar Reward Model (SRM) training/evaluation.
+    """
+
+    def parse_item(self, item: Dict[str, Any], media_content: Dict[str, Any],
+                   config: Dict[str, Any]) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Parse a data item into two message sequences and metadata.
+
+        :param item: The raw data item
+        :type item: Dict[str, Any]
+        :param media_content: Loaded visual content
+        :type media_content: Dict[str, Any]
+        :param config: Configuration for task instructions, max_pixels, and fps
+        :type config: Dict[str, Any]
+
+        :return: A tuple of (messages0, messages1, metadata)
+        :rtype: Tuple[List[Dict], List[Dict], Dict]
+        """
+        video1 = media_content['video1']
+        video2 = media_content['video2']
+
+        if not all([video1, video2]):
+            raise ValueError(f"Missing video content for id {item['id']}.")
+
+        # Get generation prompt from data item
+        prompt_text = item["prompt"]
+
+        # Get system prompts from config
+        task_instruction_template = get_task_instructions(self, config)
+        task_instruction = task_instruction_template.format(prompt=prompt_text)
+
+        # Get FPS and max_pixels from config
+        fps = config.get("video_fps", 1.0)
+        max_pixels = config["max_pixels"]
+
+        # Random flip to avoid positional bias
+        flip = random.random() > 0.5
+        if flip:
+            vid_a, vid_b = video2, video1
+            if item['preference'] == 'A':
+                actual_preference = 'B'
+            elif item['preference'] == 'B':
+                actual_preference = 'A'
+            else:
+                actual_preference = 'C'
+        else:
+            vid_a, vid_b = video1, video2
+            actual_preference = item['preference']
+
+        # Build messages for SRM
+        messages0 = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "video",
+                "video": vid_a,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }]
+
+        messages1 = [{
+            "role": "system",
+            "content": task_instruction
+        }, {
+            "role": "user",
+            "content": [{
+                "type": "video",
+                "video": vid_b,
+                "fps": fps,
+                "max_pixels": max_pixels
+            }]
+        }]
+
+        other = {
+            "id": item["id"],
+            "preference": actual_preference,
+            "prompt": prompt_text,
+            "model1": item['model1'] if not flip else item['model2'],
+            "model2": item['model2'] if not flip else item['model1'],
+            "source": item.get("source", "genai_bench_video"),
+            "reward_rule_label": "general",
+        }
+
+        return messages0, messages1, other

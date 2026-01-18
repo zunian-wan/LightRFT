@@ -13,6 +13,7 @@ from .hpdv3 import HPDv3Handler
 from .rapidata import RapidataT2VHandler, RapidataI2VHandler
 from .omnirewardbench import OmniRewardBenchT2VHandler, OmniRewardBenchT2IHandler, OmniRewardBenchT2AHandler
 from .image_reward_db import ImageRewardDBPairwiseHandler
+from .genai_bench import GenAIBenchPointwiseHandler, GenAIBenchVideoPointwiseHandler
 from .audio_alpaca import AudioAlpacaHandler
 from .utils import zero_pad_sequences, load_multimodal_content
 
@@ -90,6 +91,8 @@ class RankDatasetVL(Dataset):
             "omnirewardbench-t2v": OmniRewardBenchT2VHandler(),
             "omnirewardbench-t2i": OmniRewardBenchT2IHandler(),
             "imagerewarddb": ImageRewardDBPairwiseHandler(),
+            "genai-bench": GenAIBenchPointwiseHandler(),
+            "genai-bench-video": GenAIBenchVideoPointwiseHandler(),
         }
 
         # Load data from all specified dataset paths

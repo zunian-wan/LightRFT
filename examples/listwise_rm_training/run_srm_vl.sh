@@ -26,15 +26,14 @@ EVAL_DATA_PATH="Path/to/eval/data"
 
 
 # Example Task Instruction
-TASK_INSTRUCTION="Your will act as an expert image evaluator for text-to-image generation.
+TASK_INSTRUCTION="""Your will act as an expert image evaluator for text-to-image generation.
 Given a text prompt and a generated image, your task is to assess the overall quality of the image in relation to the prompt.
 Your evaluation should focus on the following key aspects:
 • Preference: Which image would a human viewer find more satisfying or visually appealing overall.
 • Alignment: How well the image content matches the given text prompt in semantics, objects, and attributes.
 • Aesthetics: The visual quality of the image, including composition, color harmony, and clarity.
 Your task is provided in the following, please give your judgement based on above criteria.
-The prompt used for generation is as follows: {prompt}.
-"
+The prompt used for generation is as follows: {prompt}."""
 
 # Path to the pretrained model
 PRETRAIN_PATH="/path/to/pretrained/model"

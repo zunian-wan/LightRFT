@@ -161,7 +161,7 @@ class HPDv3Handler(BaseDataHandler):
                     "type": "image",
                     "image": image0,
                     "max_pixels": max_pixels
-                }  # to save memory
+                }
                             ]
             }
         ]
