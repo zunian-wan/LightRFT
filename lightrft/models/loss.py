@@ -853,12 +853,14 @@ class ListCELoss(nn.Module):
             b_scores = scores[b][b_mask]
             b_ranks = ranks[b][b_mask]
             
-            if b_scores.numel() < 2:
+            k_v = b_scores.size(0)
+            if k_v < 2:
                 continue
             
             # 2. Generate all pairs (i, j) scores and ranks using broadcasting
-            s_i = b_scores.unsqueeze(1) # [K_valid, 1]
-            s_j = b_scores.unsqueeze(0) # [1, K_valid]
+            # s_i: [k_v, 1], s_j: [1, k_v] -> results in [k_v, k_v] expanded forms
+            s_i = b_scores.unsqueeze(1).expand(-1, k_v)
+            s_j = b_scores.unsqueeze(0).expand(k_v, -1)
             r_i = b_ranks.unsqueeze(1)
             r_j = b_ranks.unsqueeze(0)
             

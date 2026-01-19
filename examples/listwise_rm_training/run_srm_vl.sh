@@ -8,11 +8,11 @@ unset HTTPS_PROXY
 #############################  kwargs ##########################
 WARMUP=0.0
 TBS=32               # Training batch size
-LR=5e-6
+LR=1e-5
 MAX_LENGTH=4096
 FPS=2.0
 MAX_PIXELS=172800   # 360*480
-LOSS_TYPE=ranknet   # Options: listmle, ranknet
+LOSS_TYPE=listce    # Options: listmle, ranknet, listce
 K=6                 # List size, set to 0 to use all candidates in each sample
 
 # Path to training data
@@ -23,7 +23,6 @@ DATA_PATH=$(printf '%s,' "${data_files[@]}" | sed 's/,$//')
 
 # Path to evaluation data (Optional)
 EVAL_DATA_PATH="Path/to/eval/data"
-
 
 # Example Task Instruction
 TASK_INSTRUCTION="""Your will act as an expert image evaluator for text-to-image generation.
@@ -80,7 +79,7 @@ torchrun --nnodes $NNODES \
     --ckpt_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
     --train_batch_size ${TBS} \
     --micro_train_batch_size 8 \
-    --max_epochs 5 \
+    --max_epochs 8 \
     --lr_warmup_ratio ${WARMUP} \
     --prompt_max_len $MAX_LENGTH \
     --zero_stage 3 \
