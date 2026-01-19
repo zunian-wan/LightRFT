@@ -313,6 +313,7 @@
 <span class="sd">- Helper functions for collecting and analyzing output lengths in distributed environments</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
@@ -356,7 +357,13 @@
 <span class="sd">        &gt;&gt;&gt; # Use during training loop</span>
 <span class="sd">        &gt;&gt;&gt; stats = analyzer.collect(generation_outputs, step=100, is_rank_0=True)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">engine_dp_group</span><span class="p">,</span> <span class="n">plot_every</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">percentiles</span><span class="o">=</span><span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span> <span class="n">plot_out_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">engine_dp_group</span><span class="p">:</span> <span class="n">dist</span><span class="o">.</span><span class="n">ProcessGroup</span><span class="p">,</span>
+        <span class="n">plot_every</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">percentiles</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span>
+        <span class="n">plot_out_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">engine_dp_group</span> <span class="o">=</span> <span class="n">engine_dp_group</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">plot_out_dir</span> <span class="o">=</span> <span class="n">plot_out_dir</span>
@@ -371,7 +378,7 @@
 
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GenLenAnalyser is initialized and will log to </span><span class="si">{</span><span class="n">plot_out_dir</span><span class="si">}</span><span class="s2"> every </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">plot_every</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="GenLenAnalyser.collect"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.GenLenAnalyser.collect">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">collect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_outputs</span><span class="p">,</span> <span class="n">cur_step</span><span class="p">,</span> <span class="n">is_rank_0</span><span class="p">):</span>
+<div class="viewcode-block" id="GenLenAnalyser.collect"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.GenLenAnalyser.collect">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">collect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_outputs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">cur_step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">is_rank_0</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Collect and analyze generation length data at the current step.</span>
 
@@ -380,7 +387,7 @@
 <span class="sd">        happens at intervals specified by plot_every parameter.</span>
 
 <span class="sd">        :param gen_outputs: List of generation outputs to analyze, each containing &#39;output_token_ids&#39;</span>
-<span class="sd">        :type gen_outputs: list</span>
+<span class="sd">        :type gen_outputs: List[Dict[str, Any]]</span>
 
 <span class="sd">        :param cur_step: Current training/generation step</span>
 <span class="sd">        :type cur_step: int</span>
@@ -438,7 +445,13 @@
         <span class="k">return</span> <span class="n">infos</span></div></div>
 
 
-<div class="viewcode-block" id="analyse_output_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.analyse_output_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">analyse_output_lengths</span><span class="p">(</span><span class="n">gen_outputs</span><span class="p">,</span> <span class="n">engine_dp_group</span><span class="p">,</span> <span class="n">percentiles</span><span class="o">=</span><span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span> <span class="n">plot_out_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="analyse_output_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.analyse_output_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">analyse_output_lengths</span><span class="p">(</span>
+    <span class="n">gen_outputs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">engine_dp_group</span><span class="p">:</span> <span class="n">dist</span><span class="o">.</span><span class="n">ProcessGroup</span><span class="p">,</span>
+    <span class="n">percentiles</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span>
+    <span class="n">plot_out_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Analyze the length distribution of generated outputs.</span>
 
@@ -483,7 +496,7 @@
     <span class="k">return</span> <span class="n">analyse_info</span></div>
 
 
-<div class="viewcode-block" id="collect_local_output_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.collect_local_output_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">collect_local_output_lengths</span><span class="p">(</span><span class="n">outputs</span><span class="p">):</span>
+<div class="viewcode-block" id="collect_local_output_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.collect_local_output_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">collect_local_output_lengths</span><span class="p">(</span><span class="n">outputs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Collect the lengths of generated outputs from the local process.</span>
 
@@ -516,7 +529,7 @@
     <span class="k">return</span> <span class="n">output_lengths</span></div>
 
 
-<div class="viewcode-block" id="gather_all_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.gather_all_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">gather_all_lengths</span><span class="p">(</span><span class="n">local_lengths</span><span class="p">,</span> <span class="n">group</span><span class="p">):</span>
+<div class="viewcode-block" id="gather_all_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.gather_all_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">gather_all_lengths</span><span class="p">(</span><span class="n">local_lengths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">group</span><span class="p">:</span> <span class="n">dist</span><span class="o">.</span><span class="n">ProcessGroup</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Gather output lengths from all processes in the distributed group.</span>
 
@@ -554,7 +567,7 @@
     <span class="k">return</span> <span class="n">all_lengths</span></div>
 
 
-<div class="viewcode-block" id="analyze_output_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.analyze_output_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">analyze_output_lengths</span><span class="p">(</span><span class="n">all_lengths</span><span class="p">,</span> <span class="n">percentiles</span><span class="p">):</span>
+<div class="viewcode-block" id="analyze_output_lengths"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/statistic.html#lightrft.strategy.utils.statistic.analyze_output_lengths">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">analyze_output_lengths</span><span class="p">(</span><span class="n">all_lengths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">percentiles</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Analyze the distribution of output lengths and compute statistics.</span>
 
@@ -564,13 +577,13 @@
 <span class="sd">    optimization and monitoring.</span>
 
 <span class="sd">    :param all_lengths: List of output lengths from all processes</span>
-<span class="sd">    :type all_lengths: list</span>
+<span class="sd">    :type all_lengths: List[int]</span>
 
 <span class="sd">    :param percentiles: List of percentiles to compute (e.g., [25, 50, 75, 90])</span>
-<span class="sd">    :type percentiles: list</span>
+<span class="sd">    :type percentiles: List[int]</span>
 
 <span class="sd">    :return: Dictionary containing statistics about the length distribution</span>
-<span class="sd">    :rtype: dict</span>
+<span class="sd">    :rtype: Dict[str, Any]</span>
 
 <span class="sd">    Example::</span>
 

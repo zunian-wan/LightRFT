@@ -320,13 +320,13 @@ based on configuration arguments. It supports three types of strategies:</p>
 <h2>get_strategy<a class="headerlink" href="#get-strategy" title="Permalink to this heading">¶</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="lightrft.strategy.strategy.get_strategy">
-<span class="sig-prename descclassname"><span class="pre">lightrft.strategy.strategy.</span></span><span class="sig-name descname"><span class="pre">get_strategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/lightrft/strategy/strategy.html#get_strategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.strategy.strategy.get_strategy" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">lightrft.strategy.strategy.</span></span><span class="sig-name descname"><span class="pre">get_strategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="fsdp/fsdpv2.html#lightrft.strategy.fsdp.fsdpv2.FSDPV2Strategy" title="lightrft.strategy.fsdp.fsdpv2.FSDPV2Strategy"><span class="pre">FSDPV2Strategy</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="deepspeed/deepspeed.html#lightrft.strategy.deepspeed.deepspeed.DeepspeedStrategy" title="lightrft.strategy.deepspeed.deepspeed.DeepspeedStrategy"><span class="pre">DeepspeedStrategy</span></a></span></span><a class="reference internal" href="../../_modules/lightrft/strategy/strategy.html#get_strategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.strategy.strategy.get_strategy" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create and return the appropriate training strategy based on configuration arguments.</p>
 <p>This function examines the provided arguments and instantiates either a DeepSpeed,
 or FSDP V2 strategy with the appropriate parameters.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>args</strong> (<em>object</em>) – Configuration arguments containing strategy selection flags and parameters</p>
+<dd class="field-odd"><p><strong>args</strong> (<em>Any</em><em> (</em><em>usually argparse.Namespace</em><em>)</em>) – Configuration arguments containing strategy selection flags and parameters</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>An instantiated strategy object</p>

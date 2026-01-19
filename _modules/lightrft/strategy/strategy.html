@@ -312,6 +312,8 @@
 <span class="sd">The module automatically selects the appropriate strategy based on the provided arguments.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Union</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.strategy.deepspeed.deepspeed</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeepspeedStrategy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.strategy.fsdp.fsdpv2</span><span class="w"> </span><span class="kn">import</span> <span class="n">FSDPV2Strategy</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
@@ -319,7 +321,7 @@
 
 
 <span class="c1"># TODO: simplify the strategy creation</span>
-<div class="viewcode-block" id="get_strategy"><a class="viewcode-back" href="../../../api_doc/strategy/strategy.html#lightrft.strategy.strategy.get_strategy">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_strategy</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+<div class="viewcode-block" id="get_strategy"><a class="viewcode-back" href="../../../api_doc/strategy/strategy.html#lightrft.strategy.strategy.get_strategy">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_strategy</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="s1">&#39;FSDPV2Strategy&#39;</span><span class="p">,</span> <span class="s1">&#39;DeepspeedStrategy&#39;</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create and return the appropriate training strategy based on configuration arguments.</span>
 
@@ -327,7 +329,7 @@
 <span class="sd">    or FSDP V2 strategy with the appropriate parameters.</span>
 
 <span class="sd">    :param args: Configuration arguments containing strategy selection flags and parameters</span>
-<span class="sd">    :type args: object</span>
+<span class="sd">    :type args: Any (usually argparse.Namespace)</span>
 
 <span class="sd">    :return: An instantiated strategy object</span>
 <span class="sd">    :rtype: Union[FSDPV2Strategy, DeepspeedStrategy]</span>

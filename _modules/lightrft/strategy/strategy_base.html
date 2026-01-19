@@ -317,7 +317,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Callable</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">deepspeed</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -379,7 +379,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="StrategyBase.__init__"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.__init__">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0917</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">micro_train_batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">train_batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_norm</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">micro_train_batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">train_batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize strategy with common parameters.</span>
@@ -393,7 +393,7 @@
 <span class="sd">        :param train_batch_size: Total batch size for training</span>
 <span class="sd">        :type train_batch_size: int</span>
 <span class="sd">        :param args: Additional configuration arguments</span>
-<span class="sd">        :type args: Any</span>
+<span class="sd">        :type args: Any (usually argparse.Namespace)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_norm</span> <span class="o">=</span> <span class="n">max_norm</span>
@@ -445,12 +445,14 @@
         <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
         <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">manual_seed_all</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="StrategyBase.setup_distributed"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.setup_distributed">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">setup_distributed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_gpu_per_node</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="StrategyBase.setup_distributed"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.setup_distributed">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">setup_distributed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">num_gpu_per_node</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize distributed training environment.</span>
 
 <span class="sd">        :param timeout: Maximum time to wait for initialization</span>
 <span class="sd">        :type timeout: timedelta, optional</span>
+<span class="sd">        :param num_gpu_per_node: Number of GPUs per node</span>
+<span class="sd">        :type num_gpu_per_node: int</span>
 <span class="sd">        :raises RuntimeError: If required environment variables are missing</span>
 <span class="sd">        :raises ValueError: If unsupported engine type is specified</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -571,7 +573,9 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="StrategyBase.optimizer_step"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.optimizer_step">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">optimizer_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">optimizer_step</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">optim</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Take optimizer step.</span>
 
@@ -591,12 +595,12 @@
         <span class="n">replay_buffer</span><span class="p">,</span>
         <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">pin_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">collate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">drop_last</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">sampler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">consumed_samples</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-    <span class="p">):</span>
+        <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">collate_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">drop_last</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">sampler</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">consumed_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataLoader</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set up data loader for training.</span>
 
@@ -608,6 +612,7 @@
 <span class="sd">        :param shuffle: Whether to shuffle data</span>
 <span class="sd">        :type shuffle: bool</span>
 <span class="sd">        :param collate_fn: Function to collate samples</span>
+<span class="sd">        :type collate_fn: Optional[Callable]</span>
 <span class="sd">        :param drop_last: Whether to drop last incomplete batch</span>
 <span class="sd">        :type drop_last: bool</span>
 <span class="sd">        :param sampler: Custom sampler</span>
@@ -640,7 +645,14 @@
 
 <div class="viewcode-block" id="StrategyBase.save_ckpt"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.save_ckpt">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">save_ckpt</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0917, W0102</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">save_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_num</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">max_mem</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">client_state</span><span class="o">=</span><span class="p">{},</span> <span class="n">save_latest</span><span class="o">=</span><span class="kc">True</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">max_mem</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+        <span class="n">client_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">save_latest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save training checkpoint with additional metadata.</span>
@@ -663,14 +675,14 @@
 <div class="viewcode-block" id="StrategyBase.load_ckpt"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.load_ckpt">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load_ckpt</span><span class="p">(</span>  <span class="c1"># pylint: disable=R0917</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">load_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">tag</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">load_module_strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">load_optimizer_states</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">load_lr_scheduler_states</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">load_module_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">):</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">load_module_strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">load_optimizer_states</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">load_lr_scheduler_states</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">load_module_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Load training checkpoint with various options.</span>
 
@@ -689,17 +701,19 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="StrategyBase.all_reduce"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.all_reduce">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="StrategyBase.all_reduce"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.all_reduce">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]],</span>
+                   <span class="n">op</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform all-reduce operation across distributed processes.</span>
 
 <span class="sd">        :param data: Data to be reduced, can be a tensor or dictionary of tensors</span>
-<span class="sd">        :type data: Union[torch.Tensor, dict]</span>
+<span class="sd">        :type data: Union[torch.Tensor, Dict[str, torch.Tensor]]</span>
 <span class="sd">        :param op: Reduction operation (&#39;mean&#39;, &#39;max&#39;, &#39;sum&#39;)</span>
 <span class="sd">        :type op: str</span>
 
 <span class="sd">        :return: Reduced data in the same format as input</span>
-<span class="sd">        :rtype: Union[torch.Tensor, dict]</span>
+<span class="sd">        :rtype: Union[torch.Tensor, Dict[str, torch.Tensor], float, int]</span>
 <span class="sd">        :raises AssertionError: If op is not one of &#39;mean&#39;, &#39;max&#39;, &#39;sum&#39;</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">op</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">)</span>
@@ -724,7 +738,8 @@
                 <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">is_tensor</span> <span class="k">else</span> <span class="n">data</span></div>
 
-<div class="viewcode-block" id="StrategyBase.all_gather"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.all_gather">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<div class="viewcode-block" id="StrategyBase.all_gather"><a class="viewcode-back" href="../../../api_doc/strategy/strategy_base.html#lightrft.strategy.strategy_base.StrategyBase.all_gather">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span>
+                                                        <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Gather data from all distributed processes.</span>
 
@@ -754,7 +769,6 @@
 <span class="sd">        Print messages with timestamp, but only on rank 0.</span>
 
 <span class="sd">        :param msg: Messages to print</span>
-<span class="sd">        :type msg: tuple</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">current_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
         <span class="n">time_str</span> <span class="o">=</span> <span class="n">current_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>

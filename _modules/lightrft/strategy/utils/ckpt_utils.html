@@ -310,9 +310,10 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
 
-<div class="viewcode-block" id="find_latest_checkpoint_dir"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/ckpt_utils.html#lightrft.strategy.utils.ckpt_utils.find_latest_checkpoint_dir">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">find_latest_checkpoint_dir</span><span class="p">(</span><span class="n">load_dir</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;global_step&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="find_latest_checkpoint_dir"><a class="viewcode-back" href="../../../../api_doc/strategy/utils/ckpt_utils.html#lightrft.strategy.utils.ckpt_utils.find_latest_checkpoint_dir">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">find_latest_checkpoint_dir</span><span class="p">(</span><span class="n">load_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;global_step&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Finds the latest subdirectory within the specified directory whose name</span>
 <span class="sd">    matches the &#39;&lt;prefix&gt;&lt;number&gt;&#39; format.</span>
