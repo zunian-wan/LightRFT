@@ -820,3 +820,70 @@ class RankNetLoss(nn.Module):
         
         loss = (loss * final_mask).sum() / (final_mask.sum() + 1e-8)
         return loss
+
+
+class ListCELoss(nn.Module):
+    """
+    Listwise Pairwise Cross Entropy Loss (List version of HPS Loss).
+    For each prompt, it computes the cross-entropy over [chosen, rejected]
+    for all possible pairs (i, j) where item i is ranked better than item j.
+    """
+    def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Compute ListCE loss by iterating over each sample and all its ranked pairs.
+
+        :param scores: Predicted scores, shape [B, K]
+        :param ranks: Ground Truth ranks, shape [B, K] (lower is better)
+        :param mask: Mask for valid candidates, shape [B, K]
+        :return: Scalar loss averaged over all valid pairs in the batch
+        """
+        batch_size = scores.size(0)
+        total_loss = torch.tensor(0.0, device=scores.device, dtype=scores.dtype)
+        total_pairs = 0
+        
+        # Ensure mask is boolean
+        if mask is None:
+            mask = torch.ones_like(scores, dtype=torch.bool)
+        else:
+            mask = mask.bool()
+
+        for b in range(batch_size):
+            # 1. Isolate valid candidates for this sample
+            b_mask = mask[b]
+            b_scores = scores[b][b_mask]
+            b_ranks = ranks[b][b_mask]
+            
+            if b_scores.numel() < 2:
+                continue
+            
+            # 2. Generate all pairs (i, j) scores and ranks using broadcasting
+            s_i = b_scores.unsqueeze(1) # [K_valid, 1]
+            s_j = b_scores.unsqueeze(0) # [1, K_valid]
+            r_i = b_ranks.unsqueeze(1)
+            r_j = b_ranks.unsqueeze(0)
+            
+            # 3. Identify pairs where i is better than j (rank_i < rank_j)
+            pair_mask = (r_i < r_j)
+            
+            if not pair_mask.any():
+                continue
+            
+            # 4. Extract scores for these pairs
+            chosen_scores = s_i[pair_mask]   # [N_pairs]
+            rejected_scores = s_j[pair_mask] # [N_pairs]
+            
+            # 5. Compute logic: CE([chosen, rejected], 0)
+            # Logits shape: [N_pairs, 2], Labels: all 0
+            pair_logits = torch.stack([chosen_scores, rejected_scores], dim=-1)
+            pair_labels = torch.zeros(pair_logits.size(0), device=scores.device, dtype=torch.long)
+            
+            # Using sum for aggregation across pairs in this sample
+            sample_loss = F.cross_entropy(pair_logits, pair_labels, reduction='sum')
+            
+            total_loss += sample_loss
+            total_pairs += pair_logits.size(0)
+            
+        if total_pairs == 0:
+            return total_loss
+            
+        return total_loss / total_pairs

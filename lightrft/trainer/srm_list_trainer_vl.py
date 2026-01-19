@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Optimizer
 
-from lightrft.models import ListMLELoss, RankNetLoss
+from lightrft.models import ListMLELoss, RankNetLoss, ListCELoss
 from lightrft.utils import DistributedSampler
 
 
@@ -73,6 +73,10 @@ class SRMListTrainerVL:
             self.loss = "RankNet"
             self.loss_fn = RankNetLoss(margin=margin)
             self.strategy.print(f"RankNet Loss with margin {margin}")
+        elif loss == "listce":
+            self.loss = "ListCE"
+            self.loss_fn = ListCELoss()
+            self.strategy.print("ListCE Loss")
         else:
             raise ValueError(f"invalid loss type: {loss}")
 

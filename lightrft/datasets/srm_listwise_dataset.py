@@ -2,7 +2,7 @@ import os
 import copy
 import random
 import torch
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer, AutoProcessor
 from loguru import logger
@@ -33,13 +33,6 @@ class RankDatasetListwiseVL(Dataset):
         self.config = config if config else {}
         
         self.media_content_loader = load_multimodal_content
-        
-        # Processor config setup (similar to RankDatasetVL)
-        if "qwen" in self.processor.__class__.__name__.lower():
-            self.image_processor = self.processor.image_processor
-            self.tokenizer = self.processor.tokenizer
-        else:
-            self.image_processor = self.processor.image_processor
 
         # Use Listwise Handlers
         self.handlers = {
