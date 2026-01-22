@@ -773,9 +773,10 @@ class RankNetLoss(nn.Module):
     RankNet Loss.
     A Listwise LogSigmoid Loss.
     """
-    def __init__(self, margin: float = 0.0):
+    def __init__(self, margin: float = 0.0, use_dynamic_margin: bool = False):
         super().__init__()
         self.margin = margin
+        self.use_dynamic_margin = use_dynamic_margin
 
     def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
@@ -815,8 +816,17 @@ class RankNetLoss(nn.Module):
         # Combine with validity mask
         final_mask = pair_mask * valid_mask_2d.float()
         
+        if self.use_dynamic_margin:
+            # Dynamic margin: scale * |rank_i - rank_j|
+            # Since we only consider i better than j, r_diff is negative.
+            # So |r_i - r_j| = -(r_i - r_j) = -r_diff
+            # margin becomes: self.margin * (rank_gap)
+            current_margin = -r_diff * self.margin
+        else:
+            current_margin = self.margin
+
         # Loss = log(1 + exp(-(s_i - s_j - margin)))
-        loss = F.softplus(-(s_diff - self.margin))
+        loss = F.softplus(-(s_diff - current_margin))
         
         loss = (loss * final_mask).sum() / (final_mask.sum() + 1e-8)
         return loss

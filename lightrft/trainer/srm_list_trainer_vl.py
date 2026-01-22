@@ -77,6 +77,10 @@ class SRMListTrainerVL:
             self.loss = "ListCE"
             self.loss_fn = ListCELoss()
             self.strategy.print("ListCE Loss")
+        elif loss == "ranknet_dynamic":
+            self.loss = "RankNetDynamic"
+            self.loss_fn = RankNetLoss(margin=margin, use_dynamic_margin=True)
+            self.strategy.print(f"RankNet Loss with Dynamic Margin (scale {margin})")
         else:
             raise ValueError(f"invalid loss type: {loss}")
 

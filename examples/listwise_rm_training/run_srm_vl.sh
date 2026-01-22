@@ -7,13 +7,14 @@ unset HTTPS_PROXY
 
 #############################  kwargs ##########################
 WARMUP=0.0
-TBS=32               # Training batch size
+TBS=32
 LR=1e-5
 MAX_LENGTH=4096
 FPS=2.0
-MAX_PIXELS=172800   # 360*480
-LOSS_TYPE=listce    # Options: listmle, ranknet, listce
-K=6                 # List size, set to 0 to use all candidates in each sample
+MAX_PIXELS=172800            # 360*480
+LOSS_TYPE=ranknet_dynamic    # Options: listmle, ranknet, listce, ranknet_dynamic
+MARGIN=0.1                   # Margin for ranknet loss, ignored for other losses    
+K=6                          # List size, set to 0 to use all candidates in each sample
 
 # Path to training data
 data_files=(
@@ -95,7 +96,7 @@ torchrun --nnodes $NNODES \
     --l2 1.0e-4 \
     --flash_attn \
     --loss_type $LOSS_TYPE \
-    --margin 0.1 \
+    --margin $MARGIN \
     --list_size $K \
     --scale_for_train \
     --pooling_method attn \
