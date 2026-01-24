@@ -289,7 +289,8 @@ def train(args: argparse.Namespace) -> None:
         processor=processor,
         prompt_max_len=args.prompt_max_len,
         value_clip=args.value_clip,
-        eps_clip=args.eps_clip,
+        eps_clip_low=args.eps_clip_low,
+        eps_clip_high=args.eps_clip_high,
         loss_agg_mode=args.loss_agg_mode,
         use_gspo=args.use_gspo,
         normalize_advantages=args.normalize_advantages,
@@ -381,7 +382,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_norm", type=float, default=1.0, help="Gradient clipping")
     parser.add_argument("--l2", type=float, default=0.0, help="weight decay loss")
     parser.add_argument("--ptx_coef", type=float, default=0.05, help="PPO-ptx loss coef")
-    parser.add_argument("--eps_clip", type=float, default=0.2, help="PPO clip range")
+    parser.add_argument("--eps_clip_low", type=float, default=0.2, help="PPO clip range lower bound")
+    parser.add_argument("--eps_clip_high", type=float, default=0.28, help="PPO clip range upper bound")
     parser.add_argument("--loss_agg_mode", type=str, default='seq-mean-token-sum',
         help="Loss aggregation mode. Options: ['token-mean', 'seq-mean-token-sum', 'seq-mean-token-mean', 'seq-mean-token-sum-norm']")
     parser.add_argument("--use_gspo", action="store_true", default=False, help="Enable GSPO (Group Sequence Policy Optimization) mode")

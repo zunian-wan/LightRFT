@@ -64,11 +64,24 @@ class GPTLMLoss(nn.Module):
 
 class PolicyLoss(nn.Module):
     """
-    Policy Loss for PPO
+    Policy Loss for PPO with support for asymmetric clipping.
+
+    :param clip_eps_low: Clipping coefficient for the lower bound, defaults to 0.2.
+    :type clip_eps_low: float
+    :param clip_eps_high: Clipping coefficient for the upper bound, defaults to 0.28.
+    :type clip_eps_high: float
+    :param use_dapo: Whether to use DAPO (Dynamic Action-level Penalty Optimization), defaults to False.
+    :type use_dapo: bool
+    :param use_cpg_loss: Whether to use CPG (Clipped Policy Gradient) loss variant, defaults to False.
+    :type use_cpg_loss: bool
     """
-    def __init__(self, clip_eps: float = 0.2, use_dapo: bool = False, use_cpg_loss: bool = False) -> None:
+
+    def __init__(
+        self, clip_eps_low: float = 0.2, clip_eps_high: float = 0.28, use_dapo: bool = False, use_cpg_loss: bool = False
+    ) -> None:
         super().__init__()
-        self.clip_eps = clip_eps
+        self.clip_eps_low = clip_eps_low
+        self.clip_eps_high = clip_eps_high
         self.use_dapo = use_dapo
         self.use_cpg_loss = use_cpg_loss
 
@@ -95,8 +108,9 @@ class PolicyLoss(nn.Module):
         """
         if self.use_cpg_loss:
             clipped_log_probs = torch.where(
-                advantages > 0, torch.clamp(log_probs, max=torch.log(torch.tensor(1 + self.clip_eps)) + old_log_probs),
-                torch.clamp(log_probs, min=torch.log(torch.tensor(1 - self.clip_eps)) + old_log_probs)
+                advantages > 0,
+                torch.clamp(log_probs, max=torch.log(torch.tensor(1 + self.clip_eps_high)) + old_log_probs),
+                torch.clamp(log_probs, min=torch.log(torch.tensor(1 - self.clip_eps_low)) + old_log_probs),
             )
             loss = -clipped_log_probs * advantages
             loss = (loss * action_mask).sum() / action_mask.sum()
@@ -105,7 +119,7 @@ class PolicyLoss(nn.Module):
         # PPO loss
         ratio = (log_probs - old_log_probs).exp()
         surr1 = ratio * advantages
-        surr2 = ratio.clamp(1 - self.clip_eps, 1 + self.clip_eps) * advantages
+        surr2 = ratio.clamp(1 - self.clip_eps_low, 1 + self.clip_eps_high) * advantages
         loss = -torch.min(surr1, surr2)
         loss = masked_mean(loss, action_mask, dim=-1).mean()
 

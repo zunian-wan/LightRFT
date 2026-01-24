@@ -13,6 +13,9 @@ WARMUP=0.03
 RBS=32   # rollout_batch_size
 TBS=64   # train_batch_size
 
+EPS_CLIP_LOW=0.2     # lower bound for clip in policy loss
+EPS_CLIP_HIGH=0.28   # upper bound for clip in policy loss
+
 # --- Learning and Model Settings ---
 KL=0.001
 LR=1e-6
@@ -104,6 +107,8 @@ torchrun --nnodes $NNODES --nproc-per-node $GPUS_PER_NODE --node_rank $NODE_RANK
    --num_episodes ${EPISODE} \
    --lr_warmup_ratio ${WARMUP} \
    --n_samples_per_prompt $N_SAMPLES \
+   --eps_clip_low ${EPS_CLIP_LOW} \
+   --eps_clip_high ${EPS_CLIP_HIGH} \
    --prompt_max_len $PROMPT_MAX_LEN \
    --generate_max_len $GENERATE_MAX_LEN \
    --zero_stage 3 \

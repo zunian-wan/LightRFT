@@ -57,8 +57,10 @@ class PPOTrainerVL(ABC):
     :type buffer_limit: int
     :param buffer_cpu_offload: If True, offloads replay buffer to CPU, defaults to True.
     :type buffer_cpu_offload: bool
-    :param eps_clip: Clipping coefficient for policy loss, defaults to 0.2.
-    :type eps_clip: float
+    :param eps_clip_low: Clipping coefficient for lower bound of policy loss, defaults to 0.2.
+    :type eps_clip_low: float
+    :param eps_clip_high: Clipping coefficient for upper bound of policy loss, defaults to 0.28.
+    :type eps_clip_high: float
     :param value_clip: Clipping coefficient for value function loss, defaults to 0.2.
     :type value_clip: float
     :param micro_rollout_batch_size: Micro-batch size for generating rollouts, defaults to 8.
@@ -112,7 +114,8 @@ class PPOTrainerVL(ABC):
         micro_train_batch_size: int = 8,
         buffer_limit: int = 0,
         buffer_cpu_offload: bool = True,
-        eps_clip: float = 0.2,
+        eps_clip_low: float = 0.2,
+        eps_clip_high: float = 0.28,
         value_clip: float = 0.2,
         micro_rollout_batch_size: int = 8,
         gradient_checkpointing: bool = False,
@@ -173,7 +176,9 @@ class PPOTrainerVL(ABC):
         self.critic_scheduler = critic_scheduler
 
         # TODO: Investigate use_cpg_loss flag
-        self.actor_loss_fn = PolicyLoss(eps_clip, use_cpg_loss=self.args.use_cpg_loss)
+        self.actor_loss_fn = PolicyLoss(
+            eps_clip_low, eps_clip_high, use_cpg_loss=self.args.use_cpg_loss
+        )
 
         self.critic_loss_fn = ValueLoss(value_clip)
         self.ptx_loss_fn = GPTLMLoss()
