@@ -771,16 +771,17 @@ class ListMLELoss(nn.Module):
 class RankNetLoss(nn.Module):
     """
     RankNet Loss.
-    A Listwise LogSigmoid Loss.
+    A Listwise LogSigmoid Loss with optional dynamic margin and lambda weighting (importance weighting).
     """
-    def __init__(self, margin: float = 0.0, use_dynamic_margin: bool = False):
+    def __init__(self, margin: float = 0.0, use_dynamic_margin: bool = False, use_lambda_weight: bool = False):
         super().__init__()
         self.margin = margin
         self.use_dynamic_margin = use_dynamic_margin
+        self.use_lambda_weight = use_lambda_weight
 
     def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
-        Compute RankNet loss.
+        Compute RankNet loss with optional importance weighting.
 
         :param scores: Predicted scores, shape [B, K]
         :param ranks: Ground Truth ranks, shape [B, K] (lower is better)
@@ -828,6 +829,14 @@ class RankNetLoss(nn.Module):
         # Loss = log(1 + exp(-(s_i - s_j - margin)))
         loss = F.softplus(-(s_diff - current_margin))
         
+        if self.use_lambda_weight:
+            # Lambda weighting (Importance Weighting): log(|rank_i - rank_j| + 1)
+            # Pairs with larger rank gaps are considered more important.
+            # We use log-smoothing to suppress extreme gradients from high-contrast pairs.
+            rank_gap = torch.abs(r_diff)
+            weight = torch.log(rank_gap + 1.0)
+            loss = loss * weight
+
         loss = (loss * final_mask).sum() / (final_mask.sum() + 1e-8)
         return loss
 

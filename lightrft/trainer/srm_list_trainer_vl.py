@@ -54,6 +54,8 @@ class SRMListTrainerVL:
         max_epochs: int = 2,
         loss: str = "listwise",
         margin: float = 0.0,
+        use_dynamic_margin: bool = False,
+        use_lambda_weight: bool = False,
     ) -> None:
         self.strategy = strategy
         self.epochs = max_epochs
@@ -71,16 +73,20 @@ class SRMListTrainerVL:
             self.strategy.print("ListMLE Loss")
         elif loss == "ranknet":
             self.loss = "RankNet"
-            self.loss_fn = RankNetLoss(margin=margin)
-            self.strategy.print(f"RankNet Loss with margin {margin}")
+            self.loss_fn = RankNetLoss(
+                margin=margin, 
+                use_dynamic_margin=use_dynamic_margin, 
+                use_lambda_weight=use_lambda_weight
+            )
+            report_str = f"RankNet Loss (margin {margin}"
+            if use_dynamic_margin: report_str += ", dynamic"
+            if use_lambda_weight: report_str += ", lambda"
+            report_str += ")"
+            self.strategy.print(report_str)
         elif loss == "listce":
             self.loss = "ListCE"
             self.loss_fn = ListCELoss()
             self.strategy.print("ListCE Loss")
-        elif loss == "ranknet_dynamic":
-            self.loss = "RankNetDynamic"
-            self.loss_fn = RankNetLoss(margin=margin, use_dynamic_margin=True)
-            self.strategy.print(f"RankNet Loss with Dynamic Margin (scale {margin})")
         else:
             raise ValueError(f"invalid loss type: {loss}")
 

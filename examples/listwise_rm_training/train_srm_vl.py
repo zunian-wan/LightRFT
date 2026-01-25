@@ -132,6 +132,8 @@ def train(args):
         max_epochs=args.max_epochs,
         loss=args.loss_type,
         margin=args.margin,
+        use_dynamic_margin=args.use_dynamic_margin,
+        use_lambda_weight=args.use_lambda_weight,
     )
 
     trainer.fit(args, consumed_samples, max_steps)
@@ -155,8 +157,10 @@ if __name__ == "__main__":
 
     # Training
     parser.add_argument("--max_epochs", type=int, default=1)
-    parser.add_argument("--loss_type", type=str, default="hps", help="Loss type for SRM training")
+    parser.add_argument("--loss_type", type=str, default="hps", help="Loss type for SRM training. Options: listmle, ranknet, listce.")
     parser.add_argument("--margin", type=float, default=0.0, help="Margin for RankNet loss")
+    parser.add_argument("--use_dynamic_margin", action="store_true", default=False, help="Use dynamic margin for RankNet loss")
+    parser.add_argument("--use_lambda_weight", action="store_true", default=False, help="Use lambda weighting for RankNet loss")
     parser.add_argument("--list_size", type=int, default=4, help="Number of items in listwise comparison")
     parser.add_argument("--prompt_max_len", type=int, default=1024, help="Max tokens for each prompt")
     parser.add_argument("--l2", type=float, default=0.0, help="weight decay loss")

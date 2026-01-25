@@ -7,12 +7,13 @@ unset HTTPS_PROXY
 
 #############################  kwargs ##########################
 WARMUP=0.0
-TBS=32
+TBS=32                       # Total train batch size
+MBS=4                        # Micro batch size per GPU
 LR=1e-5
 MAX_LENGTH=4096
 FPS=2.0
 MAX_PIXELS=172800            # 360*480
-LOSS_TYPE=ranknet_dynamic    # Options: listmle, ranknet, listce, ranknet_dynamic
+LOSS_TYPE=ranknet            # Options: listmle, ranknet, listce
 MARGIN=0.1                   # Margin for ranknet loss, ignored for other losses    
 K=6                          # List size, set to 0 to use all candidates in each sample
 
@@ -41,7 +42,7 @@ PRETRAIN_PATH="/path/to/pretrained/model"
 # Save and log paths
 current_time=$(date +"%m%d%H%M")
 EXPERIMENT_NAME=LightRFT-SRM-VL-List-Training
-SAVE_MODEL_NAME=${EXPERIMENT_NAME}-$LOSS_TYPE-imagerewarddb-qwen2.5vl3b-lr_$LR-tbs_$TBS-K_$K-$current_time
+SAVE_MODEL_NAME=${EXPERIMENT_NAME}-$LOSS_TYPE-imagerewarddb-qwen2.5vl3b-lr_$LR-tbs_$TBS-mbs_$MBS-K_$K-$current_time
 mkdir -p results/$EXPERIMENT_NAME/$SAVE_MODEL_NAME
 
 LOG_BASE=log
@@ -79,7 +80,7 @@ torchrun --nnodes $NNODES \
     --save_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
     --ckpt_path results/${EXPERIMENT_NAME}/${SAVE_MODEL_NAME} \
     --train_batch_size ${TBS} \
-    --micro_train_batch_size 8 \
+    --micro_train_batch_size ${MBS} \
     --max_epochs 8 \
     --lr_warmup_ratio ${WARMUP} \
     --prompt_max_len $MAX_LENGTH \
@@ -97,6 +98,8 @@ torchrun --nnodes $NNODES \
     --flash_attn \
     --loss_type $LOSS_TYPE \
     --margin $MARGIN \
+    --use_dynamic_margin \
+    --use_lambda_weight \
     --list_size $K \
     --scale_for_train \
     --pooling_method attn \
