@@ -773,11 +773,18 @@ class RankNetLoss(nn.Module):
     RankNet Loss.
     A Listwise LogSigmoid Loss with optional dynamic margin and lambda weighting (importance weighting).
     """
-    def __init__(self, margin: float = 0.0, use_dynamic_margin: bool = False, use_lambda_weight: bool = False):
+    def __init__(
+        self,
+        margin: float = 0.0,
+        use_dynamic_margin: bool = False,
+        use_lambda_weight: bool = False,
+        dynamic_margin_beta: float = 0.5
+    ):
         super().__init__()
         self.margin = margin
         self.use_dynamic_margin = use_dynamic_margin
         self.use_lambda_weight = use_lambda_weight
+        self.dynamic_margin_beta = dynamic_margin_beta
 
     def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
@@ -818,11 +825,11 @@ class RankNetLoss(nn.Module):
         final_mask = pair_mask * valid_mask_2d.float()
         
         if self.use_dynamic_margin:
-            # Dynamic margin: scale * |rank_i - rank_j|
+            # Dynamic margin: Base_Margin * tanh(beta * |rank_i - rank_j|)
             # Since we only consider i better than j, r_diff is negative.
             # So |r_i - r_j| = -(r_i - r_j) = -r_diff
-            # margin becomes: self.margin * (rank_gap)
-            current_margin = -r_diff * self.margin
+            rank_gap = torch.abs(r_diff)
+            current_margin = self.margin * torch.tanh(self.dynamic_margin_beta * rank_gap)
         else:
             current_margin = self.margin
 
