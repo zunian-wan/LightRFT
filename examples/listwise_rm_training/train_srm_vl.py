@@ -8,7 +8,7 @@ import torch.distributed as dist
 
 from lightrft.strategy import get_strategy
 from lightrft.utils import get_tokenizer_processor_vl, add_arguments
-from lightrft.datasets import RankDatasetListwiseVL
+from lightrft.datasets import RankDatasetListwiseVL, RankDatasetVL
 from lightrft.models import ScalarRewardModelVL
 from lightrft.trainer.srm_list_trainer_vl import SRMListTrainerVL
 
@@ -67,13 +67,13 @@ def train(args):
     )
 
     if args.eval_data:
-        eval_dataset = RankDatasetListwiseVL(
+        # For evaluation, we use pair-wise dataset
+        eval_dataset = RankDatasetVL(
             args.eval_data,
             processor=processor,
             tokenizer=tokenizer,
             strategy=strategy,
             max_length=args.prompt_max_len,
-            list_size=args.list_size,
             config={
                 "input_template": args.input_template,
                 "task_instruction": args.task_instruction,
@@ -84,7 +84,7 @@ def train(args):
 
         eval_dataloader = strategy.setup_dataloader(
             eval_dataset,
-            batch_size=args.train_batch_size // strategy.world_size,
+            batch_size=args.train_batch_size * 4 // strategy.world_size,
             pin_memory=True,
             shuffle=True,
             collate_fn=eval_dataset.collate_fn

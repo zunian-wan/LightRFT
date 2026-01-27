@@ -91,6 +91,8 @@ torchrun --nnodes $NNODES \
     --gradient_checkpointing \
     --save_steps 100 \
     --max_ckpt_num 2 \
+    --eval_data $EVAL_DATA_PATH \
+    --eval_steps 100 \
     --use_wandb "${WANDB_API_KEY}" \
     --wandb_project "${WANDB_PROJECT}" \
     --wandb_run_name "${WANDB_RUN_NAME}" \

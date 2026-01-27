@@ -9,14 +9,17 @@ Weights & Biases or TensorBoard.
 """
 
 import os
+import json
 from tqdm import tqdm
+from typing import Tuple, Dict
 
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer
+import torch.distributed as dist
 
-from lightrft.models import ListMLELoss, RankNetLoss, ListCELoss
-from lightrft.utils import DistributedSampler
+from lightrft.models import ListMLELoss, RankNetLoss, ListCELoss, pad_to_length
+from lightrft.utils import DistributedSampler, all_gather_and_flatten, all_reduce_dict
 
 
 class SRMListTrainerVL:
@@ -327,8 +330,8 @@ class SRMListTrainerVL:
             if self.eval_dataloader and len(self.eval_dataloader) > 0:
                 # Pass args first to match evaluate signature (args, dataloader, steps)
                 self.evaluate(args, self.eval_dataloader, global_step)
+        
         # save ckpt
-        # TODO: save best model on dev, use loss/perplexity on whole dev dataset as metric
         if global_step % args.save_steps == 0:
             tag = f"global_step{global_step}"
             self.strategy.save_ckpt(
@@ -337,8 +340,22 @@ class SRMListTrainerVL:
 
     def evaluate(self, args, eval_dataloader, steps=0) -> None:
         """
-        Evaluate (Listwise).
-        Calculates loss on evaluation set.
+        Evaluate the model on the provided dataloader and write a JSONL of
+        scores to the save path indicated by ``strategy.args.save_path``.
+        Also calculates and logs accuracy metrics to Weights & Biases or
+        TensorBoard.
+
+        :param args: present for API compatibility with callers.
+        :type args: Any
+        :param eval_dataloader: Dataloader for evaluation samples.
+        :type eval_dataloader: torch.utils.data.DataLoader
+        :param steps: Global step id for naming the output file.
+        :type steps: int
+
+        :returns: None
+        :rtype: NoneType
+
+        The output file name format is ``eval_scores_{steps}.jsonl``.
         """
         step_bar = tqdm(
             range(len(eval_dataloader)),
@@ -346,82 +363,298 @@ class SRMListTrainerVL:
             disable=not self.strategy.is_rank_0(),
         )
         self.model.eval()
-        
+
+        # Create JSONL file and write header (only on rank 0)
+        if self.strategy.is_rank_0():
+            self.strategy.print(f"Start Evaluation at global step {steps}...")
+            output_file = f"eval_results_{steps}.jsonl"
+            output_file = os.path.join(self.strategy.args.save_path, "evals", output_file)
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            with open(output_file, "w") as f:
+                f.write("")  # Just create/clear the file
+
         head_types = self.model.head_types
-        loss_sums = {ht: 0.0 for ht in head_types}
-        acc_sums = {ht: 0.0 for ht in head_types}
-        total_batches = 0
-        
+        # Metrics accumulators
+        eval_metrics = {"count": 0}
+        for head in head_types:
+            eval_metrics[f"{head}_correct"] = 0.0
+            eval_metrics[f"{head}_count"] = 0
+            eval_metrics[f"{head}_chosen_reward"] = 0.0
+            eval_metrics[f"{head}_reject_reward"] = 0.0
+
         with torch.no_grad():
-            for batch in eval_dataloader:
+            for data in eval_dataloader:
+                (
+                    input0_ids,
+                    input0_mask,
+                    input1_ids,
+                    input1_mask,
+                    input0_img_pixels,
+                    input0_img_grid_thws,
+                    input1_img_pixels,
+                    input1_img_grid_thws,
+                    input0_video_pixels,
+                    input0_video_grid_thws,
+                    input1_video_pixels,
+                    input1_video_grid_thws,
+                    extras,
+                ) = data
+
                 device = torch.cuda.current_device()
-                
-                input_ids = batch["input_ids"].to(device)
-                attention_mask = batch["attention_mask"].to(device)
-                pixel_values = batch.get("pixel_values")
-                image_grid_thw = batch.get("image_grid_thw")
-                ranks = batch["ranks"].to(device)
-                candidate_masks = batch.get("candidate_masks")
-                if candidate_masks is not None:
-                    candidate_masks = candidate_masks.to(device)
-                    
-                if pixel_values is not None:
-                    pixel_values = pixel_values.to(device)
-                    image_grid_thw = image_grid_thw.to(device)
-                    
-                B, K = ranks.shape
-                
-                scores_dict = self.model(
-                    sequences=input_ids,
-                    attention_mask=attention_mask,
-                    pixel_values=pixel_values,
-                    image_grid_thw=image_grid_thw,
+                input0_ids = input0_ids.squeeze(1).to(device)
+                input0_mask = input0_mask.squeeze(1).to(device)
+                input1_ids = input1_ids.squeeze(1).to(device)
+                input1_mask = input1_mask.squeeze(1).to(device)
+
+                if input0_img_pixels is not None:
+                    input0_img_pixels = input0_img_pixels.to(device)
+                    input0_img_grid_thws = input0_img_grid_thws.to(device)
+                    input1_img_pixels = input1_img_pixels.to(device)
+                    input1_img_grid_thws = input1_img_grid_thws.to(device)
+
+                if input0_video_pixels is not None:
+                    input0_video_pixels = input0_video_pixels.to(device)
+                    input0_video_grid_thws = input0_video_grid_thws.to(device)
+                    input1_video_pixels = input1_video_pixels.to(device)
+                    input1_video_grid_thws = input1_video_grid_thws.to(device)
+
+                scores0, scores1 = self.concatenated_forward(
+                    self.model,
+                    input0_ids,
+                    input0_mask,
+                    input1_ids,
+                    input1_mask,
+                    input0_img_pixels,
+                    input0_img_grid_thws,
+                    input1_img_pixels,
+                    input1_img_grid_thws,
+                    input0_video_pixels,
+                    input0_video_grid_thws,
+                    input1_video_pixels,
+                    input1_video_grid_thws,
                 )
-                
+
+                # --- Metric Calculation Start ---
+                labels = {}
                 for head_type in head_types:
-                    scores = scores_dict.get(head_type)
-                    if scores is None: continue
-                    
-                    # Recover scores structure
-                    scores_flat = scores.view(-1)
-                    full_scores = torch.full((B, K), float('-inf'), device=device, dtype=scores.dtype)
-                    mask_bool = candidate_masks.bool()
-                    full_scores[mask_bool] = scores_flat
-                    
-                    loss = self.loss_fn(full_scores, ranks, mask=candidate_masks)
-                    acc = self.compute_listwise_acc(full_scores, ranks, mask=candidate_masks)
-                    
-                    loss_sums[head_type] += loss.item()
-                    acc_sums[head_type] += acc.item()
-                
-                total_batches += 1
+                    labels[head_type] = [e[head_type] if head_type in e else "C" for e in extras]
+
+                chosens = {}
+                rejects = {}
+                for head_type in head_types:
+                    chosens[head_type] = []
+                    rejects[head_type] = []
+
+                for i in range(len(extras)):
+                    for head_type in head_types:
+                        label = labels[head_type][i]
+                        if label == "A":
+                            chosens[head_type].append(scores0[head_type][i])
+                            rejects[head_type].append(scores1[head_type][i])
+                        elif label == "B":
+                            chosens[head_type].append(scores1[head_type][i])
+                            rejects[head_type].append(scores0[head_type][i])
+                        # We don't need equals for accuracy/reward calculation
+
+                for head_type in head_types:
+                    if len(chosens[head_type]) > 0:
+                        chosens[head_type] = torch.stack(chosens[head_type])
+                        rejects[head_type] = torch.stack(rejects[head_type])
+
+                # Update local metrics
+                batch_size = len(extras)
+                eval_metrics["count"] += batch_size
+
+                for head_type in head_types:
+                    if len(chosens[head_type]) > 0:
+                        count = len(chosens[head_type])
+                        eval_metrics[f"{head_type}_correct"] += ((chosens[head_type]
+                                                                  > rejects[head_type]).float().sum().item())
+                        eval_metrics[f"{head_type}_count"] += count
+                        eval_metrics[f"{head_type}_chosen_reward"] += chosens[head_type].sum().item()
+                        eval_metrics[f"{head_type}_reject_reward"] += rejects[head_type].sum().item()
+                # --- Metric Calculation End ---
+
+                # Gather scores from all GPUs for each head_type
+                gathered_scores0 = {}
+                gathered_scores1 = {}
+                for head_type in scores0.keys():
+                    if head_type in scores0:
+                        # Create tensor list for all_gather
+                        tensor_list0 = [torch.zeros_like(scores0[head_type]) for _ in range(dist.get_world_size())]
+                        tensor_list1 = [torch.zeros_like(scores1[head_type]) for _ in range(dist.get_world_size())]
+                        # Use all_gather instead of all_gather_object for tensors
+                        dist.all_gather(tensor_list0, scores0[head_type])
+                        dist.all_gather(tensor_list1, scores1[head_type])
+                        # Concatenate all tensors along batch dimension
+                        gathered_scores0[head_type] = torch.cat(tensor_list0, dim=0)
+                        gathered_scores1[head_type] = torch.cat(tensor_list1, dim=0)
+
+                # Gather extras
+                all_extras = all_gather_and_flatten(extras)
+
+                # write scores to JSONL file immediately (only on rank 0)
+                if self.strategy.is_rank_0():
+                    with open(output_file, "a") as f:
+                        for i, extras in enumerate(all_extras):
+                            # build per-sample scores dict from gathered_scores
+                            input0_scores = {
+                                head_type: gathered_scores0[head_type][i].item()
+                                for head_type in gathered_scores0
+                            }
+                            input1_scores = {
+                                head_type: gathered_scores1[head_type][i].item()
+                                for head_type in gathered_scores1
+                            }
+                            # build per-sample results dict
+                            results = {
+                                "info": extras,
+                                "scores0": input0_scores,
+                                "scores1": input1_scores,
+                            }
+                            f.write(json.dumps(results) + "\n")
+
                 step_bar.update()
 
-        # Log evaluation metrics
-        logs_dict = {}
-        for head_type in head_types:
-            mean_loss = loss_sums[head_type] / total_batches if total_batches > 0 else 0.0
-            mean_acc = acc_sums[head_type] / total_batches if total_batches > 0 else 0.0
-            logs_dict[f"eval_{head_type}_loss"] = mean_loss
-            logs_dict[f"eval_{head_type}_acc"] = mean_acc
+        # --- Aggregate and Log Metrics ---
+        reduced_metrics = all_reduce_dict(eval_metrics, op="sum")
 
-        # Simple all_reduce (defaults to mean)
-        for k in logs_dict.keys():
-            logs_dict[k] = self.strategy.all_reduce(logs_dict[k])
-        
+        logs_dict = {}
+
+        for head in head_types:
+            count = reduced_metrics[f"{head}_count"]
+            if count > 0:
+                logs_dict[f"eval/{head}_acc"] = reduced_metrics[f"{head}_correct"] / count
+
+                chosen_reward = reduced_metrics[f"{head}_chosen_reward"] / count
+                reject_reward = reduced_metrics[f"{head}_reject_reward"] / count
+
+                logs_dict[f"eval/{head}_chosen_reward_mean"] = round(chosen_reward, 4)
+                logs_dict[f"eval/{head}_reject_reward_mean"] = round(reject_reward, 4)
+
         if self.strategy.is_rank_0():
-            log_str = f"Eval steps {steps}: "
-            for head_type in head_types:
-                log_str += f"{head_type}_Loss={logs_dict[f'eval_{head_type}_loss']:.4f}, {head_type}_Acc={logs_dict[f'eval_{head_type}_acc']:.4f} | "
-            self.strategy.print(log_str)
-            
+            self.strategy.print(f"Evaluation scores written to {output_file}")
+            self.strategy.print(f"Eval metrics: {logs_dict}")
+
+            # Log to wandb/tensorboard
             if self._wandb is not None:
-                logs = {"eval/%s" % k: v for k, v in {**logs_dict, "global_step": steps}.items()}
-                self._wandb.log(logs)
+                logs_dict["eval/global_step"] = steps
+                self._wandb.log(logs_dict)
             elif self._tensorboard is not None:
                 for k, v in logs_dict.items():
-                    self._tensorboard.add_scalar(f"eval/{k}", v, steps)
-        
-        self.model.train()
+                    if k != "eval/global_step":
+                        self._tensorboard.add_scalar(k, v, steps)
 
+        self.model.train()  # reset model state
+
+    def concatenated_forward(
+        self,
+        model,
+        input0_ids,
+        input0_mask,
+        input1_ids,
+        input1_mask,
+        input0_img_pixels,
+        input0_img_grid_thws,
+        input1_img_pixels,
+        input1_img_grid_thws,
+        input0_video_pixels,
+        input0_video_grid_thws,
+        input1_video_pixels,
+        input1_video_grid_thws,
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        """
+        Run the model once on concatenated chosen/rejected inputs.
+
+        Concatenation reduces the number of forward passes.
+
+        :param model: Model to evaluate.
+        :type model: nn.Module
+        :param input0_ids: Token ids for chosen sequences.
+        :type input0_ids: torch.Tensor
+        :param input0_mask: Attention mask for chosen sequences.
+        :type input0_mask: torch.Tensor
+        :param input1_ids: Token ids for rejected sequences.
+        :type input1_ids: torch.Tensor
+        :param input1_mask: Attention mask for rejected sequences.
+        :type input1_mask: torch.Tensor
+        :param input0_img_pixels: Optional image features for chosen samples.
+        :type input0_img_pixels: Optional[torch.Tensor]
+        :param input0_img_grid_thws: Optional image grid meta for chosen.
+        :type input0_img_grid_thws: Optional[torch.Tensor]
+        :param input1_img_pixels: Optional image features for rejected samples.
+        :type input1_img_pixels: Optional[torch.Tensor]
+        :param input1_img_grid_thws: Optional image grid meta for rejected.
+        :type input1_img_grid_thws: Optional[torch.Tensor]
+        :param input0_video_pixels: Optional video features for chosen samples.
+        :type input0_video_pixels: Optional[torch.Tensor]
+        :param input0_video_grid_thws: Optional video grid meta for chosen.
+        :type input0_video_grid_thws: Optional[torch.Tensor]
+        :param input1_video_pixels: Optional video features for rejected samples.
+        :type input1_video_pixels: Optional[torch.Tensor]
+        :param input1_video_grid_thws: Optional video grid meta for rejected.
+        :type input1_video_grid_thws: Optional[torch.Tensor]
+
+        :returns: Tuple of dicts ``(scores0, scores1)`` separating the outputs
+            for chosen and rejected samples.
+        :rtype: Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]
+        """
+        input_ids, att_masks = self.concatenated_inputs(input0_ids, input0_mask, input1_ids, input1_mask)
+
+        pixel_values = None
+        image_grid_thws = None
+        pixel_values_videos = None
+        video_grid_thws = None
+        with torch.no_grad():
+            if input0_img_pixels is not None:
+                pixel_values = torch.cat((input0_img_pixels, input1_img_pixels), dim=0)
+                image_grid_thws = torch.cat((input0_img_grid_thws, input1_img_grid_thws), dim=0)
+
+            if input0_video_pixels is not None:
+                pixel_values_videos = torch.cat((input0_video_pixels, input1_video_pixels), dim=0)
+                video_grid_thws = torch.cat((input0_video_grid_thws, input1_video_grid_thws), dim=0)
+
+        scores = model(
+            input_ids,
+            attention_mask=att_masks,
+            pixel_values=pixel_values,
+            image_grid_thw=image_grid_thws,
+            pixel_values_videos=pixel_values_videos,
+            video_grid_thw=video_grid_thws,
+        )
+        scores0 = {head_type: score[:input0_ids.shape[0]] for head_type, score in scores.items()}
+        scores1 = {head_type: score[input0_ids.shape[0]:] for head_type, score in scores.items()}
+        return scores0, scores1
+
+    def concatenated_inputs(self, input0_ids, input0_mask, input1_ids,
+                            input1_mask) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Concatenate two inputs into a single batch.
+
+        :param input0_ids: Token ids for the first sequences, shape ``(N, Lc)``.
+        :type input0_ids: torch.Tensor
+        :param input0_mask: Attention mask for chosen sequences, shape ``(N, Lc)``.
+        :type input0_mask: torch.Tensor
+        :param input1_ids: Token ids for the second sequences, shape ``(N, Lr)``.
+        :type input1_ids: torch.Tensor
+        :param input1_mask: Attention mask for the second sequences, shape ``(N, Lr)``.
+        :type input1_mask: torch.Tensor
+
+        :returns: Tuple ``(input_ids, att_masks)`` where inputs are padded to
+            a common max length across input0 and input1, then concatenated
+            along the batch dimension to shape ``(2N, Lmax)``.
+        :rtype: Tuple[torch.Tensor, torch.Tensor]
+        """
+        max_length = max(input0_ids.shape[1], input1_ids.shape[1])
+        inputs_ids = torch.cat(
+            (
+                pad_to_length(input0_ids, max_length, self.tokenizer.pad_token_id),
+                pad_to_length(input1_ids, max_length, self.tokenizer.pad_token_id),
+            ),
+            dim=0,
+        )
+        max_length = max(input0_mask.shape[1], input1_mask.shape[1])
+        att_masks = torch.cat((pad_to_length(input0_mask, max_length, 0), pad_to_length(input1_mask, max_length, 0)),
+                              dim=0)
+        return inputs_ids, att_masks
 

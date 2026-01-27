@@ -768,6 +768,70 @@ class ListMLELoss(nn.Module):
         return loss.mean()
 
 
+class MarginListMLELoss(nn.Module):
+    def __init__(self, margin: float = 0.1, temperature: float = 1.0):
+        super().__init__()
+        self.margin = margin
+        self.temperature = temperature
+
+    def forward(self, scores: torch.Tensor, ranks: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        """
+        Compute Margin-aware ListMLE loss.
+
+        :param scores: Predicted scores, shape [B, K]
+        :param ranks: Ground Truth ranks, shape [B, K] (lower is better)
+        :param mask: Mask for valid candidates, shape [B, K] (1 for valid, 0 for padded)
+        :return: Scalar loss averaged over batch
+        """
+        device = scores.device
+        if mask is None:
+            mask = torch.ones_like(scores, dtype=torch.bool)
+        else:
+            mask = mask.bool()
+
+        # 1. Pre-processing: Mask invalid items
+        # Use -inf for scores so exp(-inf) = 0
+        s_masked = scores.masked_fill(~mask, float('-inf'))
+        # Use inf for ranks so they sort to the end
+        r_masked = ranks.masked_fill(~mask, float('inf'))
+
+        # 2. Sort: Rank from best to worst
+        indices = torch.argsort(r_masked, dim=1)  # [B, K]
+        s_sorted = torch.gather(s_masked, 1, indices) / self.temperature  # [B, K]
+        m_sorted = torch.gather(mask, 1, indices)
+        
+        # 3. Compute LogSumExp with Margin
+        # Subtract max_s for numerical stability
+        max_s, _ = torch.max(s_sorted, dim=1, keepdim=True)
+        max_s = max_s.masked_fill(max_s == float('-inf'), 0.0)  # Avoid NaN for fully masked samples
+        
+        exp_s = torch.exp(s_sorted - max_s)
+        
+        # Suffix sum: suffix_sum[i] = sum_{j=i}^K exp(s_j - max_s)
+        suffix_sum = torch.flip(torch.cumsum(torch.flip(exp_s, dims=[1]), dim=1), dims=[1])
+        
+        # S_i: sum_{j=i+1}^K exp(s_j - max_s)
+        S_i = suffix_sum[:, 1:] 
+        S_i = torch.cat([S_i, torch.zeros((scores.size(0), 1), device=device)], dim=1)
+        
+        # Scale margin
+        margin_val = self.margin / self.temperature
+        margin_exp = torch.exp(torch.tensor(margin_val, device=device))
+        
+        # lse_margin = log( exp(s_i) + sum_{j>i} exp(s_j + margin) )
+        lse_margin = torch.log(exp_s + S_i * margin_exp + 1e-12) + max_s
+        
+        # Compute loss terms: log_sum_exp - score
+        loss_terms = lse_margin - s_sorted
+        
+        # Zero out invalid entries to prevent NaN/Inf propagation
+        loss_terms = loss_terms.masked_fill(~m_sorted, 0.0)
+
+        # 4. Average over batch (consistent with ListMLELoss)
+        sample_loss = loss_terms.sum(dim=1)
+        return sample_loss.mean()
+
+
 class RankNetLoss(nn.Module):
     """
     RankNet Loss.
