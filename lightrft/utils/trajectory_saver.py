@@ -117,7 +117,7 @@ def _calculate_entropy_from_log_probs(log_probs: torch.Tensor) -> float:
     3. Aggregated value: scalar - cannot calculate entropy, return 0.0
 
     For full distributions: Entropy = -sum(p * log(p)) where p = exp(log_prob)
-    For sequences: Use standard deviation as uncertainty measure
+    For sequences: Use standard deviation as an uncertainty measure
 
     :param log_probs: Action log probabilities tensor
     :type log_probs: torch.Tensor
@@ -271,6 +271,9 @@ class TrajectorySaver:
         """
         # Extract tensors and move to CPU
         sequences = exp.sequences.cpu()
+        
+        # Determine if this is a single item (S,) or a batch (B, S)
+        is_batch = sequences.dim() == 2
 
         # Validate sequences shape before processing
         if len(sequences.shape) == 0:
@@ -279,27 +282,18 @@ class TrajectorySaver:
                 f"[TrajectorySaver] Warning: sequences is a scalar tensor at step {step}, exp_idx {exp_idx}. Skipping."
             )
             return []
-        elif len(sequences.shape) == 1:
-            # 1D tensor - reshape to (1, seq_len)
-            print(
-                f"[TrajectorySaver] Warning: sequences is 1D tensor with shape {sequences.shape} at step {step}, exp_idx {exp_idx}. Reshaping to 2D."  # noqa: E501
-            )
+        elif not is_batch:
+            # 1D tensor - reshape to (1, seq_len) to simplify loops below
             sequences = sequences.unsqueeze(0)
-        elif len(sequences.shape) != 2:
-            # Unexpected shape
-            print(
-                f"[TrajectorySaver] Error: sequences has unexpected shape {sequences.shape} at step {step}, exp_idx {exp_idx}. Expected 2D tensor (B, S). Skipping."  # noqa: E501
-            )
-            return []
 
         batch_size = sequences.shape[0]
 
         # Handle action_mask with same shape validation
         if exp.action_mask is not None:
             action_mask = exp.action_mask.cpu()
-            if len(action_mask.shape) == 1:
+            if action_mask.dim() == 1:
                 action_mask = action_mask.unsqueeze(0)
-            elif len(action_mask.shape) != 2:
+            elif action_mask.dim() != 2:
                 print(
                     f"[TrajectorySaver] Warning: action_mask has unexpected shape {action_mask.shape}. Creating default mask."  # noqa: E501
                 )
@@ -311,12 +305,36 @@ class TrajectorySaver:
         decoded_sequences = self.tokenizer.batch_decode(sequences, skip_special_tokens=False)
 
         # Handle optional tensors with shape validation
-        advantages = self._safe_extract_tensor(exp, 'advantages', batch_size)
-        returns = self._safe_extract_tensor(exp, 'returns', batch_size)
-        action_log_probs = self._safe_extract_tensor(exp, 'action_log_probs', batch_size)
-        values = self._safe_extract_tensor(exp, 'values', batch_size)
-        raw_images = exp.raw_images if hasattr(exp,
-                                               'raw_images') and exp.raw_images is not None else [None] * batch_size
+        advantages = self._safe_extract_tensor(exp, 'advantages', batch_size, is_batch)
+        returns = self._safe_extract_tensor(exp, 'returns', batch_size, is_batch)
+        action_log_probs = self._safe_extract_tensor(exp, 'action_log_probs', batch_size, is_batch)
+        values = self._safe_extract_tensor(exp, 'values', batch_size, is_batch)
+
+        # Handle raw images - can be list of lists (batch) or list of images (single item)
+        # Check if attribute exists and is not None/empty
+        raw_images_attr = getattr(exp, "raw_images", None)
+        if raw_images_attr and len(raw_images_attr) > 0:
+            # We need to distinguish between:
+            # 1. ExperienceVL (Batch): [ [img1], [img2] ]
+            # 2. BufferItemVL (Individual): [img1, img2]
+            
+            first_element = raw_images_attr[0]
+            
+            # If the first element is a list, it's already in the format we expect (list per sample)
+            if isinstance(first_element, list):
+                raw_images = raw_images_attr
+            # If the first element is an Image object, it's a list for a single sample
+            elif hasattr(first_element, 'size') and hasattr(first_element, 'mode'):
+                raw_images = [raw_images_attr]
+            else:
+                # Fallback to is_batch logic as a safety measure
+                if is_batch:
+                    raw_images = raw_images_attr
+                else:
+                    raw_images = [raw_images_attr]
+        else:
+            # No images or empty list
+            raw_images = [None] * batch_size
 
         unpacked_list = []
         # Iterate over each sample in the micro-batch
@@ -428,27 +446,27 @@ class TrajectorySaver:
 
             # Add optional fields for this sample
             if advantages[i] is not None:
-                traj_dict["advantages"] = self._tensor_to_list(advantages[i])
+                traj_dict["advantages"] = self._tensor_to_mean(advantages[i])
             if returns[i] is not None:
-                traj_dict["return"] = self._tensor_to_list(returns[i])
+                traj_dict["return"] = self._tensor_to_mean(returns[i])
             if action_log_probs[i] is not None:
-                traj_dict["action_log_probs"] = self._tensor_to_list(action_log_probs[i])
+                traj_dict["action_log_probs"] = self._tensor_to_mean(action_log_probs[i])
             if values[i] is not None:
-                traj_dict["values"] = self._tensor_to_list(values[i])
+                traj_dict["values"] = self._tensor_to_mean(values[i])
 
             # Add info dict fields, slicing if they are tensors
-            if hasattr(exp, 'info') and exp.info is not None:
+            if hasattr(exp, "info") and exp.info is not None:
                 info_dict = {}
                 for key, value in exp.info.items():
                     if isinstance(value, torch.Tensor) and len(value.shape) > 0 and len(value) == batch_size:
-                        info_dict[key] = self._tensor_to_list(value[i])
-                    elif key == 'reward_metrics':
+                        info_dict[key] = self._tensor_to_mean(value[i])
+                    elif key == "reward_metrics":
                         metrics = {}
                         for metric_name, metric_tensor in value.items():
                             if isinstance(metric_tensor, torch.Tensor) and len(
                                 metric_tensor.shape
                             ) > 0 and len(metric_tensor) == batch_size:
-                                metrics[metric_name] = self._tensor_to_list(metric_tensor[i])
+                                metrics[metric_name] = self._tensor_to_mean(metric_tensor[i])
                             else:  # scalar metric, applies to all
                                 metrics[metric_name] = self._tensor_to_list(metric_tensor) if isinstance(
                                     metric_tensor, torch.Tensor
@@ -512,8 +530,24 @@ class TrajectorySaver:
         else:
             return tensor.tolist()
 
+    def _tensor_to_mean(self, tensor: Optional[torch.Tensor]) -> Optional[float]:
+        """
+        Convert tensor to its mean scalar value.
+
+        :param tensor: Input tensor to convert
+        :type tensor: Optional[torch.Tensor]
+        :return: Mean value as float or None
+        :rtype: Optional[float]
+        """
+        if tensor is None:
+            return None
+        tensor = tensor.cpu().detach()
+        if tensor.numel() == 0:
+            return 0.0
+        return tensor.float().mean().item()
+
     def _safe_extract_tensor(self, exp: Any, attr_name: str,
-                             expected_batch_size: int) -> Union[torch.Tensor, List[Optional[torch.Tensor]]]:
+                             expected_batch_size: int, is_batch: bool) -> Union[torch.Tensor, List[Optional[torch.Tensor]]]:
         """
         Safely extract a tensor attribute from an experience object.
 
@@ -523,6 +557,8 @@ class TrajectorySaver:
         :type attr_name: str
         :param expected_batch_size: Expected batch size for validation
         :type expected_batch_size: int
+        :param is_batch: Whether the experience object is a batch
+        :type is_batch: bool
         :return: List with one element per sample, or [None] * batch_size if extraction fails
         :rtype: Union[torch.Tensor, List[Optional[torch.Tensor]]]
         """
@@ -531,12 +567,16 @@ class TrajectorySaver:
 
         tensor = getattr(exp, attr_name).cpu()
 
-        # Handle scalar tensors
+        # For individual items (not batch), the tensor itself belongs to the sample
+        if not is_batch:
+            return [tensor]
+
+        # Handle scalar tensors in batch mode
         if len(tensor.shape) == 0:
             # Scalar - apply to all samples
             return [tensor] * expected_batch_size
 
-        # Handle 1D tensors
+        # Handle 1D tensors in batch mode
         if len(tensor.shape) == 1:
             if tensor.shape[0] == expected_batch_size:
                 return tensor
@@ -551,14 +591,14 @@ class TrajectorySaver:
                 else:
                     return tensor[:expected_batch_size]
 
-        # Handle 2D+ tensors
+        # Handle 2D+ tensors in batch mode (standard case)
         if tensor.shape[0] == expected_batch_size:
             return tensor
         else:
             print(
-                f"[TrajectorySaver] Warning: {attr_name} has mismatched batch size {tensor.shape[0]}, expected {expected_batch_size}. Using defaults."  # noqa: E501
+                f"[TrajectorySaver] Warning: {attr_name} has mismatched batch size {tensor.shape[0]}, expected {expected_batch_size}. Reshaping/Padding."  # noqa: E501
             )
-            return [None] * expected_batch_size
+            return [tensor[i] if i < tensor.shape[0] else None for i in range(expected_batch_size)]
 
     def _compute_statistics(self, trajectories: List[Dict[str, Any]]) -> Dict[str, float]:
         """

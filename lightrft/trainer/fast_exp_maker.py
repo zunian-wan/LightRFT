@@ -1808,6 +1808,13 @@ class FastExperienceMaker(NaiveExperienceMaker):
             num_actions=output.num_actions,
         )
 
+        # Store image/video counts in info for buffer splitting and tracking
+        if vlm:
+            if hasattr(output, 'image_num') and output.image_num is not None:
+                info['image_num'] = output.image_num
+            if hasattr(output, 'video_num') and output.video_num is not None:
+                info['video_num'] = output.video_num
+
         # Add reward_metrics if available
         if output.reward_metrics is not None:
             info['reward_metrics'] = output.reward_metrics
