@@ -314,6 +314,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActorVL</span><span class="p">,</span> <span class="n">GPTLMLoss</span><span class="p">,</span> <span class="n">PolicyLoss</span><span class="p">,</span> <span class="n">ValueLoss</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.models.actor_modality</span><span class="w"> </span><span class="kn">import</span> <span class="n">ActorModality</span><span class="p">,</span> <span class="n">get_supported_parameters</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.models.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">masked_mean</span><span class="p">,</span> <span class="n">unpacking_samples</span><span class="p">,</span> <span class="n">compute_approx_kl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.utils.distributed_sampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedSampler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdaptiveKLController</span><span class="p">,</span> <span class="n">ExperienceVL</span><span class="p">,</span> <span class="n">FixedKLController</span><span class="p">,</span> <span class="n">NaiveExperienceMakerVL</span><span class="p">,</span> <span class="n">NaiveReplayBufferVL</span>  <span class="c1"># noqa</span>
@@ -474,7 +475,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">actor_scheduler</span> <span class="o">=</span> <span class="n">actor_scheduler</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">critic_scheduler</span> <span class="o">=</span> <span class="n">critic_scheduler</span>
 
-        <span class="c1"># TODO: Investigate use_cpg_loss flag</span>
+        <span class="c1"># Cache actor&#39;s supported parameters based on its modality</span>
+        <span class="c1"># Default to VISION_LANGUAGE for backward compatibility with models without modality attribute</span>
+        <span class="n">actor_modality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor</span><span class="o">.</span><span class="n">modality</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_actor_supported_params</span> <span class="o">=</span> <span class="n">get_supported_parameters</span><span class="p">(</span><span class="n">actor_modality</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">actor_loss_fn</span> <span class="o">=</span> <span class="n">PolicyLoss</span><span class="p">(</span><span class="n">eps_clip</span><span class="p">,</span> <span class="n">use_cpg_loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">use_cpg_loss</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">critic_loss_fn</span> <span class="o">=</span> <span class="n">ValueLoss</span><span class="p">(</span><span class="n">value_clip</span><span class="p">)</span>
@@ -510,6 +515,9 @@
         <span class="c1"># Initialize wandb/tensorboard for logging</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_step_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Independent counter for eval X-axis</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wandb_log_counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Global counter for unique wandb system steps</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">use_wandb</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
             <span class="kn">import</span><span class="w"> </span><span class="nn">wandb</span>
 
@@ -525,11 +533,18 @@
                 <span class="n">reinit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
 
+            <span class="c1"># Define custom metrics to allow different X-axes</span>
+            <span class="c1"># rollout/* and train/* use the main training step</span>
+            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;rollout/global_step&quot;</span><span class="p">)</span>
+            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;rollout/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;rollout/global_step&quot;</span><span class="p">)</span>
+
             <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">)</span>
-            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;train/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">,</span> <span class="n">step_sync</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="c1"># Use eval/global_step as step_metric to match what we actually log</span>
+            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;train/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">)</span>
+
+            <span class="c1"># eval/* uses its own counter, allowing it to be plotted sequentially</span>
+            <span class="c1"># even if evaluations happen rarely</span>
             <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;eval/global_step&quot;</span><span class="p">)</span>
-            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;eval/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;eval/global_step&quot;</span><span class="p">,</span> <span class="n">step_sync</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;eval/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;eval/global_step&quot;</span><span class="p">)</span>
 
         <span class="c1"># Initialize TensorBoard writer if wandb is not available</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">use_tensorboard</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
@@ -538,69 +553,6 @@
             <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">use_tensorboard</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">log_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">use_tensorboard</span><span class="p">,</span> <span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">wandb_run_name</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="o">=</span> <span class="n">SummaryWriter</span><span class="p">(</span><span class="n">log_dir</span><span class="o">=</span><span class="n">log_dir</span><span class="p">)</span>
-
-    <span class="c1"># def _ensure_model_buffers_on_device(self):</span>
-    <span class="c1">#     &quot;&quot;&quot;</span>
-    <span class="c1">#     Ensure all model buffers are on GPU.</span>
-
-    <span class="c1">#     This is CRITICAL for preventing Triton kernel errors. Models with:</span>
-    <span class="c1">#     - RoPE caches (cos/sin tables)</span>
-    <span class="c1">#     - Normalization statistics (mean/std)</span>
-    <span class="c1">#     - Other persistent buffers</span>
-
-    <span class="c1">#     may have buffers initialized on CPU, especially with DeepSpeed Zero-3.</span>
-    <span class="c1">#     This method explicitly moves all buffers to the current GPU.</span>
-
-    <span class="c1">#     Called at the start of training to &quot;warm up&quot; models.</span>
-    <span class="c1">#     &quot;&quot;&quot;</span>
-    <span class="c1">#     device = torch.cuda.current_device()</span>
-
-    <span class="c1">#     # Check Actor</span>
-    <span class="c1">#     if self.actor is not None:</span>
-    <span class="c1">#         self._ensure_single_model_buffers(self.actor, &quot;Actor&quot;, device)</span>
-
-    <span class="c1">#     # Check Critic (most critical - often causes Triton errors)</span>
-    <span class="c1">#     if self.critic is not None:</span>
-    <span class="c1">#         self._ensure_single_model_buffers(self.critic, &quot;Critic&quot;, device)</span>
-
-    <span class="c1">#     # Check Initial Model (for KL calculation)</span>
-    <span class="c1">#     if self.initial_model is not None:</span>
-    <span class="c1">#         self._ensure_single_model_buffers(self.initial_model, &quot;InitialModel&quot;, device)</span>
-
-    <span class="c1">#     # Check Reward Model</span>
-    <span class="c1">#     if isinstance(self.reward_model, nn.Module):</span>
-    <span class="c1">#         self._ensure_single_model_buffers(self.reward_model, &quot;RewardModel&quot;, device)</span>
-
-    <span class="c1"># def _ensure_single_model_buffers(self, model, model_name, device):</span>
-    <span class="c1">#     &quot;&quot;&quot;</span>
-    <span class="c1">#     Move all buffers of a single model to the specified device.</span>
-
-    <span class="c1">#     :param model: The model whose buffers to move.</span>
-    <span class="c1">#     :type model: nn.Module</span>
-    <span class="c1">#     :param model_name: Name of the model for logging.</span>
-    <span class="c1">#     :type model_name: str</span>
-    <span class="c1">#     :param device: Target device.</span>
-    <span class="c1">#     :type device: torch.device</span>
-    <span class="c1">#     &quot;&quot;&quot;</span>
-    <span class="c1">#     moved_buffers = []</span>
-
-    <span class="c1">#     for buffer_name, buffer in model.named_buffers():</span>
-    <span class="c1">#         if buffer is not None and buffer.device.type != &#39;cuda&#39;:</span>
-    <span class="c1">#             try:</span>
-    <span class="c1">#                 # Force buffer to GPU</span>
-    <span class="c1">#                 buffer.data = buffer.data.to(device)</span>
-    <span class="c1">#                 moved_buffers.append(buffer_name)</span>
-    <span class="c1">#             except Exception as e:</span>
-    <span class="c1">#                 self.strategy.print(</span>
-    <span class="c1">#                     f&quot;[WARNING] Failed to move {model_name}.{buffer_name} to GPU: {e}&quot;</span>
-    <span class="c1">#                 )</span>
-
-    <span class="c1">#     if moved_buffers and self.strategy.is_rank_0():</span>
-    <span class="c1">#         self.strategy.print(</span>
-    <span class="c1">#             f&quot;[INFO] Moved {len(moved_buffers)} buffers of {model_name} to GPU: {moved_buffers[:5]}{&#39;...&#39; if len(moved_buffers) &gt; 5 else &#39;&#39;}&quot;  # noqa</span>
-    <span class="c1">#         )</span>
-    <span class="c1">#     elif self.strategy.is_rank_0():</span>
-    <span class="c1">#         self.strategy.print(f&quot;[INFO] All buffers of {model_name} already on GPU&quot;)</span>
 
 <div class="viewcode-block" id="PPOTrainerVL.fit"><a class="viewcode-back" href="../../../api_doc/trainer/ppo_trainer_vl.html#lightrft.trainer.ppo_trainer_vl.PPOTrainerVL.fit">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -733,10 +685,14 @@
                         <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">batch_decode</span><span class="p">(</span>
                             <span class="n">experience</span><span class="o">.</span><span class="n">sequences</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">skip_special_tokens</span><span class="o">=</span><span class="kc">True</span>
                         <span class="p">)</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;experience.sequences w skip_special_tokens: &quot;</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;collect phase: experience.sequences w skip_special_tokens: &quot;</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;rand_prompts:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">rand_prompts</span><span class="si">}</span><span class="se">\n</span><span class="s2"> , rand_images:</span><span class="si">{</span><span class="n">rand_images</span><span class="si">}</span><span class="se">\n</span><span class="s2"> , rand_references:</span><span class="si">{</span><span class="n">rand_references</span><span class="si">}</span><span class="se">\n</span><span class="s2">, rand_labels:</span><span class="si">{</span><span class="n">rand_labels</span><span class="si">}</span><span class="se">\n</span><span class="s2"> &quot;</span>  <span class="c1"># noqa</span>
+                            <span class="sa">f</span><span class="s2">&quot;collect phase: rand_prompts:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">rand_prompts</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2"> , rand_images:</span><span class="si">{</span><span class="n">rand_images</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2"> , rand_references:</span><span class="si">{</span><span class="n">rand_references</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">, rand_labels:</span><span class="si">{</span><span class="n">rand_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2"> &quot;</span>  <span class="c1"># noqa</span>
                         <span class="p">)</span>
+                        <span class="c1"># print all</span>
+                        <span class="c1"># self.strategy.print(</span>
+                        <span class="c1">#     f&quot;rand_prompts:\n {rand_prompts}\n , rand_images:{rand_images}\n , rand_references:{rand_references}\n, rand_labels:{rand_labels}\n &quot;  # noqa</span>
+                        <span class="c1"># )</span>
 
                     <span class="bp">self</span><span class="o">.</span><span class="n">replay_buffer</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">experience</span><span class="p">)</span>
 
@@ -848,9 +804,13 @@
                 <span class="c1"># Update Episode pbar with ROLLOUT statistics (not training statistics!)</span>
                 <span class="n">pbar</span><span class="o">.</span><span class="n">set_postfix</span><span class="p">(</span><span class="n">rollout_status</span><span class="p">)</span>
 
-                <span class="c1"># Logs/checkpoints: save TRAINING statistics to wandb</span>
+                <span class="c1"># Logs/checkpoints: save BOTH ROLLOUT and TRAINING statistics to wandb</span>
+                <span class="c1"># [FIX] Merge rollout_status (from inference) and status (from training)</span>
+                <span class="c1"># to ensure wandb logs contain both types of metrics</span>
                 <span class="n">client_states</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;consumed_samples&quot;</span><span class="p">:</span> <span class="n">steps</span> <span class="o">*</span> <span class="n">args</span><span class="o">.</span><span class="n">rollout_batch_size</span><span class="p">}</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">save_logs_and_checkpoints</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">steps</span><span class="p">,</span> <span class="n">pbar</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">client_states</span><span class="p">,</span> <span class="n">episode</span><span class="o">=</span><span class="n">episode</span><span class="p">)</span>
+                <span class="n">logs_dict_combined</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">rollout_status</span><span class="p">,</span> <span class="o">**</span><span class="n">status</span><span class="p">}</span>  <span class="c1"># Merge: rollout first, training second</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">save_logs_and_checkpoints</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">steps</span><span class="p">,</span> <span class="n">pbar</span><span class="p">,</span> <span class="n">logs_dict_combined</span><span class="p">,</span> <span class="n">client_states</span><span class="p">,</span> <span class="n">episode</span><span class="o">=</span><span class="n">episode</span><span class="p">)</span>
 
                 <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
                 <span class="n">steps</span> <span class="o">=</span> <span class="n">steps</span> <span class="o">+</span> <span class="mi">1</span>
@@ -967,6 +927,45 @@
             <span class="n">status</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">training_step_critic</span><span class="p">(</span><span class="n">experience</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">status</span></div>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_qwen_vl_tensors</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">sequences</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">pixel_values</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">context</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;training&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Validates the consistency between image tokens in sequences and pixel_values features.</span>
+
+<span class="sd">            :param sequences: Token sequence tensor.</span>
+<span class="sd">            :type sequences: torch.Tensor</span>
+<span class="sd">            :param pixel_values: Processed pixel values tensor.</span>
+<span class="sd">            :type pixel_values: Optional[torch.Tensor]</span>
+<span class="sd">            :param context: A string indicating where the validation is called from (e.g., &quot;actor_rl&quot;, &quot;actor_ptx&quot;).</span>
+<span class="sd">            :type context: str</span>
+<span class="sd">            :return: True if data is consistent, False otherwise.</span>
+<span class="sd">            :rtype: bool</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">pixel_values</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">pixel_values</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># This is a text-only batch, no validation needed.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">unwrap_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">actor</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">config</span>
+        <span class="n">image_token_id</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;image_token_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">image_token_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Model does not use special image tokens.</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+        <span class="n">num_tokens</span> <span class="o">=</span> <span class="p">(</span><span class="n">sequences</span> <span class="o">==</span> <span class="n">image_token_id</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">num_patches</span> <span class="o">=</span> <span class="n">pixel_values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">4</span>
+
+        <span class="k">if</span> <span class="n">num_tokens</span> <span class="o">!=</span> <span class="n">num_patches</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[CRITICAL WARNING] Skipping batch in &#39;</span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Image features and image tokens do not match: tokens: </span><span class="si">{</span><span class="n">num_tokens</span><span class="si">}</span><span class="s2">, features: </span><span class="si">{</span><span class="n">num_patches</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;This batch will be discarded to prevent a crash.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span>
+
 <div class="viewcode-block" id="PPOTrainerVL.training_step_actor"><a class="viewcode-back" href="../../../api_doc/trainer/ppo_trainer_vl.html#lightrft.trainer.ppo_trainer_vl.PPOTrainerVL.training_step_actor">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">training_step_actor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                             <span class="n">experience</span><span class="p">:</span> <span class="n">ExperienceVL</span><span class="p">,</span>
                             <span class="n">entropy_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
@@ -1020,17 +1019,35 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[Warning] Huge advantage detected: </span><span class="si">{</span><span class="n">max_adv</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">advantages</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">advantages</span><span class="p">,</span> <span class="nb">min</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
 
+        <span class="c1"># [DEFENSIVE CHECK] Validate RL data before actor forward pass</span>
+        <span class="c1"># NOTE: This validation is now primarily done in spmd_ppo_trainer.py BEFORE calling training_step</span>
+        <span class="c1"># to ensure all ranks make the same skip decision. This check remains as a safety fallback.</span>
+        <span class="c1"># If this triggers, it indicates a bug in the pre-validation logic.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_qwen_vl_tensors</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">pixel_values</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;actor_rl_update&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+                <span class="s2">&quot;[CRITICAL ERROR] Validation failed inside training_step_actor. &quot;</span>
+                <span class="s2">&quot;This should have been caught by pre-validation in spmd_ppo_trainer.py!&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="p">{}</span>  <span class="c1"># Emergency fallback - should not normally execute</span>
+
         <span class="c1"># Actor loss</span>
+        <span class="c1"># Build kwargs based on actor&#39;s modality - only include supported parameters</span>
+        <span class="n">candidate_params</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;pixel_values&quot;</span><span class="p">:</span> <span class="n">pixel_values</span><span class="p">,</span>
+            <span class="s2">&quot;image_grid_thw&quot;</span><span class="p">:</span> <span class="n">image_grid_thws</span><span class="p">,</span>
+            <span class="s2">&quot;pixel_values_videos&quot;</span><span class="p">:</span> <span class="n">pixel_values_videos</span><span class="p">,</span>
+            <span class="s2">&quot;video_grid_thw&quot;</span><span class="p">:</span> <span class="n">video_grid_thws</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">actor_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">candidate_params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_actor_supported_params</span><span class="p">}</span>
+
         <span class="n">action_log_probs</span><span class="p">,</span> <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">actor</span><span class="p">(</span>
             <span class="n">sequences</span><span class="p">,</span>
             <span class="n">num_actions</span><span class="p">,</span>
             <span class="n">attention_mask</span><span class="o">=</span><span class="n">attention_mask</span><span class="p">,</span>
-            <span class="n">pixel_values</span><span class="o">=</span><span class="n">pixel_values</span><span class="p">,</span>
-            <span class="n">image_grid_thw</span><span class="o">=</span><span class="n">image_grid_thws</span><span class="p">,</span>
-            <span class="n">pixel_values_videos</span><span class="o">=</span><span class="n">pixel_values_videos</span><span class="p">,</span>
-            <span class="n">video_grid_thw</span><span class="o">=</span><span class="n">video_grid_thws</span><span class="p">,</span>
             <span class="n">return_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="n">packed_seq_lens</span><span class="o">=</span><span class="n">packed_seq_lens</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">actor_kwargs</span>
         <span class="p">)</span>
 
         <span class="c1"># NOTE: Explicit masking in log-space is incorrect - removed</span>
@@ -1143,6 +1160,8 @@
         <span class="c1"># self.strategy.print(f&quot;experience.info:{experience.info}&quot;)</span>
 
         <span class="c1"># Robustly handle various data types in experience.info for logging</span>
+        <span class="c1"># Note: We keep all metrics in status dict for internal use (e.g., KL weighting, progress bar)</span>
+        <span class="c1"># but will filter out rollout-only metrics when logging to wandb to avoid duplication</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="c1"># Special handling for KL divergence, which is already a scalar item</span>
             <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;kl&quot;</span><span class="p">:</span>
@@ -1300,61 +1319,112 @@
 <span class="sd">        :type global_step: int</span>
 <span class="sd">        :param step_bar: Progress bar object.</span>
 <span class="sd">        :type step_bar: tqdm</span>
-<span class="sd">        :param logs_dict: Dictionary of metrics to log, defaults to {}.</span>
+<span class="sd">        :param logs_dict: Dictionary of metrics to log. Should contain both:</span>
+<span class="sd">                          - Rollout statistics (rollout_reward, rollout_response_length, etc.)</span>
+<span class="sd">                            from inference/generation phase</span>
+<span class="sd">                          - Training statistics (policy_loss, critic_loss, kl, etc.)</span>
+<span class="sd">                            from optimization phase</span>
+<span class="sd">                          Defaults to {}.</span>
 <span class="sd">        :type logs_dict: dict</span>
 <span class="sd">        :param client_states: Client state for checkpoint recovery, defaults to {}.</span>
 <span class="sd">        :type client_states: dict</span>
 <span class="sd">        :param episode: Current episode number, defaults to 0.</span>
 <span class="sd">        :type episode: int</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># 1. LOGGING TRAIN &amp; ROLLOUT METRICS</span>
         <span class="k">if</span> <span class="n">global_step</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">logging_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Wandb logging</span>
+            <span class="c1"># Metrics that are already logged in rollout/ namespace should not be duplicated in train/</span>
+            <span class="n">ROLLOUT_ONLY_METRICS</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;reward&#39;</span><span class="p">,</span> <span class="s1">&#39;response_length&#39;</span><span class="p">,</span> <span class="s1">&#39;total_length&#39;</span><span class="p">,</span> <span class="s1">&#39;num_actions&#39;</span><span class="p">,</span> <span class="s1">&#39;return&#39;</span><span class="p">}</span>
+            <span class="n">ROLLOUT_ONLY_PREFIXES</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;reward_metrics/&#39;</span><span class="p">}</span>
+
+            <span class="n">rollout_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">train_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">logs_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;rollout_&#39;</span><span class="p">):</span>
+                    <span class="c1"># Clean key: rollout_reward -&gt; reward</span>
+                    <span class="n">clean_key</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;rollout_&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">rollout_metrics</span><span class="p">[</span><span class="n">clean_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="k">elif</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ROLLOUT_ONLY_METRICS</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="n">ROLLOUT_ONLY_PREFIXES</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Everything else is considered a training metric</span>
+                    <span class="n">train_metrics</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+            <span class="c1"># Wandb Logging</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
-                <span class="n">logs</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;train/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
-                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">{</span>
-                        <span class="o">**</span><span class="n">logs_dict</span><span class="p">,</span>
-                        <span class="s2">&quot;global_step&quot;</span><span class="p">:</span> <span class="n">global_step</span><span class="p">,</span>
-                        <span class="s2">&quot;episode&quot;</span><span class="p">:</span> <span class="n">episode</span><span class="p">,</span>
-                    <span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="p">}</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">logs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;perf/experience_maker/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">logs</span><span class="p">)</span>
-            <span class="c1"># TensorBoard logging</span>
-            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
-                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">logs_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;train/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+                <span class="n">all_wandb_logs</span> <span class="o">=</span> <span class="p">{}</span>
+
+                <span class="c1"># Add Rollout Metrics</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rollout_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">all_wandb_logs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;rollout/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="n">all_wandb_logs</span><span class="p">[</span><span class="s2">&quot;rollout/global_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_step</span>
+                <span class="n">all_wandb_logs</span><span class="p">[</span><span class="s2">&quot;rollout/episode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">episode</span>
+
+                <span class="c1"># Add Train Metrics</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">train_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">all_wandb_logs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;train/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="n">all_wandb_logs</span><span class="p">[</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_step</span>
+                <span class="n">all_wandb_logs</span><span class="p">[</span><span class="s2">&quot;train/episode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">episode</span>
+
+                <span class="c1"># Performance Stats</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;perf/experience_maker/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+                        <span class="n">all_wandb_logs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;perf/experience_maker/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
 
-        <span class="c1"># Evaluation</span>
+                <span class="c1"># Commit Train/Rollout logs with unique system step</span>
+                <span class="k">if</span> <span class="n">all_wandb_logs</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">wandb_log_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">all_wandb_logs</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">wandb_log_counter</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># TensorBoard Logging</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rollout_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rollout/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">train_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;train/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+
+        <span class="c1"># 2. EVALUATION</span>
         <span class="k">if</span> <span class="n">global_step</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">eval_steps</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_dataloader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">eval_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_dataloader</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+            <span class="c1"># Run evaluation</span>
+            <span class="n">raw_eval_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_dataloader</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
 
-            <span class="c1"># Log to wandb</span>
-            <span class="k">if</span> <span class="n">eval_metrics</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
-                <span class="c1"># [FIX] Remove duplicate &quot;eval_&quot; prefix and add episode/epoch info</span>
-                <span class="n">eval_logs</span> <span class="o">=</span> <span class="p">{}</span>
-                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">eval_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="c1"># Remove &quot;eval_&quot; prefix if present (it will be added as &quot;eval/&quot; by wandb structure)</span>
-                    <span class="n">clean_key</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;eval_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;eval_&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">k</span>
-                    <span class="n">eval_logs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;eval/</span><span class="si">{</span><span class="n">clean_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="c1"># Only log if we have results</span>
+            <span class="k">if</span> <span class="n">raw_eval_metrics</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">eval_step_counter</span> <span class="o">+=</span> <span class="mi">1</span>
 
-                <span class="c1"># Add step and episode info for X-axis options in wandb</span>
-                <span class="n">eval_logs</span><span class="p">[</span><span class="s2">&quot;eval/global_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_step</span>
-                <span class="n">eval_logs</span><span class="p">[</span><span class="s2">&quot;eval/episode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">episode</span>
-                <span class="n">eval_logs</span><span class="p">[</span><span class="s2">&quot;eval/epoch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">episode</span>  <span class="c1"># Alias for episode (common convention)</span>
+                <span class="c1"># Wandb Logging for Eval</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">eval_logs</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">raw_eval_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="c1"># Remove &quot;eval_&quot; prefix if present to avoid &quot;eval/eval_reward&quot;</span>
+                        <span class="n">clean_key</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;eval_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;eval_&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">k</span>
+                        <span class="n">eval_logs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;eval/</span><span class="si">{</span><span class="n">clean_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
 
-                <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">eval_logs</span><span class="p">)</span>
-            <span class="c1"># Log to TensorBoard</span>
-            <span class="k">elif</span> <span class="n">eval_metrics</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
-                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">eval_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;eval/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+                    <span class="c1"># Custom X-axis for Eval</span>
+                    <span class="n">eval_logs</span><span class="p">[</span><span class="s2">&quot;eval/global_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_step_counter</span>
+                    <span class="c1"># Reference to main training step</span>
+                    <span class="n">eval_logs</span><span class="p">[</span><span class="s2">&quot;eval/train_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_step</span>
+                    <span class="n">eval_logs</span><span class="p">[</span><span class="s2">&quot;eval/episode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">episode</span>
 
-        <span class="c1"># Save checkpoint</span>
-        <span class="c1"># TODO: Save best model on dev, use loss/perplexity/others on whole dev dataset as metric</span>
+                    <span class="c1"># IMPORTANT:</span>
+                    <span class="c1"># Use wandb_log_counter to ensure eval has a unique system step</span>
+                    <span class="c1"># This prevents eval metrics from being overwritten by train metrics</span>
+                    <span class="c1"># The plots will still use eval/global_step as X-axis due to define_metric</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">wandb_log_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">eval_logs</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">wandb_log_counter</span><span class="p">,</span> <span class="n">commit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+                <span class="c1"># TensorBoard Logging for Eval</span>
+                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">raw_eval_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="c1"># Clean key</span>
+                        <span class="n">clean_key</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;eval_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;eval_&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">k</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;eval/</span><span class="si">{</span><span class="n">clean_key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+
+        <span class="c1"># 3. CHECKPOINTING</span>
         <span class="k">if</span> <span class="n">global_step</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">save_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">tag</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;global_step</span><span class="si">{</span><span class="n">global_step</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_checkpoint</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">client_states</span><span class="p">)</span></div>
@@ -1410,13 +1480,20 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">critic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">critic</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-        <span class="c1"># Collect evaluation metrics</span>
         <span class="n">all_rewards</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">all_format_rewards</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">all_accuracy_rewards</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">all_response_lengths</span> <span class="o">=</span> <span class="p">[]</span>
-
         <span class="n">num_eval_batches</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Helper to extract values</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">extract_values</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">val</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)]</span>
 
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">eval_dataloader</span><span class="p">:</span>
@@ -1428,110 +1505,70 @@
 
                 <span class="c1"># Generate responses using experience maker (but don&#39;t train on them)</span>
                 <span class="c1"># We reuse the experience maker but only for generation</span>
-                <span class="k">for</span> <span class="n">experience</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">make_experience_list</span><span class="p">(</span>
-                    <span class="n">eval_prompts</span><span class="p">,</span> <span class="n">eval_images</span><span class="p">,</span> <span class="n">eval_videos</span><span class="p">,</span> <span class="n">eval_references</span><span class="p">,</span> <span class="n">eval_labels</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_kwargs</span>
+                <span class="c1"># TODO: simplify this logic</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">experience</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">make_experience_list</span><span class="p">(</span>
+                        <span class="n">eval_prompts</span><span class="p">,</span> <span class="n">eval_images</span><span class="p">,</span> <span class="n">eval_videos</span><span class="p">,</span> <span class="n">eval_references</span><span class="p">,</span> <span class="n">eval_labels</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_kwargs</span>
+                    <span class="p">)</span>
                 <span class="p">):</span>
-                    <span class="c1"># Extract metrics from experience</span>
-                    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">experience</span><span class="p">,</span> <span class="s1">&#39;info&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="c1"># Helper function to extract values robustly</span>
-                        <span class="k">def</span><span class="w"> </span><span class="nf">extract_values</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-<span class="w">                            </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">                            Extract scalar values from tensor/list/scalar, handling any shape.</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">batch_decode</span><span class="p">(</span>
+                            <span class="n">experience</span><span class="o">.</span><span class="n">sequences</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">skip_special_tokens</span><span class="o">=</span><span class="kc">True</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;eval phase: experience.sequences w skip_special_tokens: &quot;</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;eval phase: eval_prompts:</span><span class="se">\n</span><span class="s2"> </span><span class="si">{</span><span class="n">eval_prompts</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2"> , rand_images:</span><span class="si">{</span><span class="n">eval_images</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2"> , eval_references:</span><span class="si">{</span><span class="n">eval_references</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">, eval_labels:</span><span class="si">{</span><span class="n">eval_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2"> &quot;</span>  <span class="c1"># noqa</span>
+                        <span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">experience</span><span class="p">,</span> <span class="s1">&#39;info&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">:</span>
+                        <span class="n">info</span> <span class="o">=</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span>
+                        <span class="k">if</span> <span class="s1">&#39;reward&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+                            <span class="n">all_rewards</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;reward&#39;</span><span class="p">]))</span>
+                        <span class="k">if</span> <span class="s1">&#39;response_length&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+                            <span class="n">all_response_lengths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;response_length&#39;</span><span class="p">]))</span>
 
-<span class="sd">                            :param val: Value to extract (tensor, list, or scalar).</span>
-<span class="sd">                            :type val: torch.Tensor or list or scalar</span>
-<span class="sd">                            :return: List of scalar values.</span>
-<span class="sd">                            :rtype: list</span>
-<span class="sd">                            &quot;&quot;&quot;</span>
-                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-                                <span class="c1"># Flatten tensor and convert to list (handles scalar, 1D, multi-D tensors)</span>
-                                <span class="k">return</span> <span class="n">val</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-                            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
-                                <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-                            <span class="k">else</span><span class="p">:</span>
-                                <span class="c1"># Scalar value (int, float, etc.)</span>
-                                <span class="k">return</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)]</span>
-
-                        <span class="k">if</span> <span class="s1">&#39;reward&#39;</span> <span class="ow">in</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">:</span>
-                            <span class="n">all_rewards</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;reward&#39;</span><span class="p">]))</span>
-
-                        <span class="k">if</span> <span class="s1">&#39;reward_metrics&#39;</span> <span class="ow">in</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">:</span>
-                            <span class="n">reward_metrics</span> <span class="o">=</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;reward_metrics&#39;</span><span class="p">]</span>
-                            <span class="k">if</span> <span class="s1">&#39;format_reward&#39;</span> <span class="ow">in</span> <span class="n">reward_metrics</span><span class="p">:</span>
-                                <span class="n">all_format_rewards</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">reward_metrics</span><span class="p">[</span><span class="s1">&#39;format_reward&#39;</span><span class="p">]))</span>
-                            <span class="k">if</span> <span class="s1">&#39;accuracy_reward&#39;</span> <span class="ow">in</span> <span class="n">reward_metrics</span><span class="p">:</span>
-                                <span class="n">all_accuracy_rewards</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">reward_metrics</span><span class="p">[</span><span class="s1">&#39;accuracy_reward&#39;</span><span class="p">]))</span>
-
-                        <span class="k">if</span> <span class="s1">&#39;response_length&#39;</span> <span class="ow">in</span> <span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">:</span>
-                            <span class="n">all_response_lengths</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">experience</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;response_length&#39;</span><span class="p">]))</span>
+                        <span class="k">if</span> <span class="s1">&#39;reward_metrics&#39;</span> <span class="ow">in</span> <span class="n">info</span><span class="p">:</span>
+                            <span class="n">rm</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;reward_metrics&#39;</span><span class="p">]</span>
+                            <span class="k">if</span> <span class="s1">&#39;format_reward&#39;</span> <span class="ow">in</span> <span class="n">rm</span><span class="p">:</span>
+                                <span class="n">all_format_rewards</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">rm</span><span class="p">[</span><span class="s1">&#39;format_reward&#39;</span><span class="p">]))</span>
+                            <span class="k">if</span> <span class="s1">&#39;accuracy_reward&#39;</span> <span class="ow">in</span> <span class="n">rm</span><span class="p">:</span>
+                                <span class="n">all_accuracy_rewards</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">extract_values</span><span class="p">(</span><span class="n">rm</span><span class="p">[</span><span class="s1">&#39;accuracy_reward&#39;</span><span class="p">]))</span>
 
                 <span class="n">num_eval_batches</span> <span class="o">+=</span> <span class="mi">1</span>
-
-                <span class="c1"># Limit evaluation to avoid too long eval time</span>
                 <span class="k">if</span> <span class="n">num_eval_batches</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">eval_dataloader</span><span class="p">):</span>
                     <span class="k">break</span>
 
         <span class="c1"># Compute statistics</span>
-        <span class="n">eval_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">all_rewards</span><span class="p">:</span>
-            <span class="c1"># [TENSOR-FIX] Handle both tensor lists and scalar lists</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">all_rewards</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-                <span class="n">rewards_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">())</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">all_rewards</span><span class="p">])</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">compute_stats</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">values_list</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">values_list</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values_list</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">values_list</span><span class="p">])</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">rewards_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">all_rewards</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">())</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_reward_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rewards_tensor</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_reward_std&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rewards_tensor</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_reward_max&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rewards_tensor</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_reward_min&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rewards_tensor</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">values_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">metrics</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_mean&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="c1"># metrics[f&quot;{name}_std&quot;] = t.std().item() # Optional</span>
 
-        <span class="c1"># Handle both tensor lists and scalar lists</span>
-        <span class="k">if</span> <span class="n">all_format_rewards</span><span class="p">:</span>
-            <span class="c1"># [TENSOR-FIX] Use torch.cat() for tensor lists, torch.tensor() for scalar lists</span>
-            <span class="k">if</span> <span class="n">all_format_rewards</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">all_format_rewards</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-                <span class="n">format_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">())</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">all_format_rewards</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">format_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-                    <span class="n">all_format_rewards</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
-                <span class="p">)</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_format_reward&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">format_tensor</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">compute_stats</span><span class="p">(</span><span class="s2">&quot;reward&quot;</span><span class="p">,</span> <span class="n">all_rewards</span><span class="p">)</span>
+        <span class="n">compute_stats</span><span class="p">(</span><span class="s2">&quot;format_reward&quot;</span><span class="p">,</span> <span class="n">all_format_rewards</span><span class="p">)</span>
+        <span class="n">compute_stats</span><span class="p">(</span><span class="s2">&quot;accuracy_reward&quot;</span><span class="p">,</span> <span class="n">all_accuracy_rewards</span><span class="p">)</span>
+        <span class="n">compute_stats</span><span class="p">(</span><span class="s2">&quot;response_length&quot;</span><span class="p">,</span> <span class="n">all_response_lengths</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">all_accuracy_rewards</span><span class="p">:</span>
-            <span class="c1"># [TENSOR-FIX] Use torch.cat() for tensor lists, torch.tensor() for scalar lists</span>
-            <span class="k">if</span> <span class="n">all_accuracy_rewards</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">all_accuracy_rewards</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-                <span class="n">accuracy_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">())</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">all_accuracy_rewards</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">accuracy_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-                    <span class="n">all_accuracy_rewards</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
-                <span class="p">)</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_accuracy_reward&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">accuracy_tensor</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;num_samples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_rewards</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">all_response_lengths</span><span class="p">:</span>
-            <span class="c1"># [TENSOR-FIX] Use torch.cat() for tensor lists, torch.tensor() for scalar lists</span>
-            <span class="k">if</span> <span class="n">all_response_lengths</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">all_response_lengths</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
-                <span class="n">lengths_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">())</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">all_response_lengths</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">lengths_tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span>
-                    <span class="n">all_response_lengths</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">current_device</span><span class="p">()</span>
-                <span class="p">)</span>
-            <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_response_length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lengths_tensor</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-
-        <span class="n">eval_metrics</span><span class="p">[</span><span class="s2">&quot;eval_num_samples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_rewards</span><span class="p">)</span>
-
-        <span class="c1"># Print evaluation results</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">60</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Print results</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Evaluation Results (Step </span><span class="si">{</span><span class="n">global_step</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">60</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">eval_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">60</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="c1"># Set models back to train mode</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">actor</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">critic</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">critic</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="n">eval_metrics</span></div></div>
+        <span class="k">return</span> <span class="n">metrics</span></div></div>
 </pre></div>
 
               </article>

@@ -511,8 +511,16 @@
                 <span class="n">reinit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
             <span class="p">)</span>
 
+            <span class="c1"># Define separate metric namespaces for clarity:</span>
+            <span class="c1"># - rollout/*: Metrics from experience generation phase</span>
+            <span class="c1"># - train/*: Metrics from policy optimization phase</span>
+            <span class="c1"># - eval/*: Metrics from evaluation phase</span>
+            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;rollout/global_step&quot;</span><span class="p">)</span>
+            <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;rollout/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;rollout/global_step&quot;</span><span class="p">,</span> <span class="n">step_sync</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
             <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">)</span>
             <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;train/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">,</span> <span class="n">step_sync</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
             <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;eval/epoch&quot;</span><span class="p">)</span>
             <span class="n">wandb</span><span class="o">.</span><span class="n">define_metric</span><span class="p">(</span><span class="s2">&quot;eval/*&quot;</span><span class="p">,</span> <span class="n">step_metric</span><span class="o">=</span><span class="s2">&quot;eval/epoch&quot;</span><span class="p">,</span> <span class="n">step_sync</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -915,21 +923,62 @@
 <span class="sd">        :type client_states: dict</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">global_step</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">logging_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Define which metrics should be excluded from train/ logs to avoid duplication</span>
+            <span class="c1"># These metrics are already logged in the rollout/ namespace</span>
+            <span class="n">ROLLOUT_ONLY_METRICS</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;reward&#39;</span><span class="p">,</span>  <span class="c1"># Already logged as rollout/reward</span>
+                <span class="s1">&#39;response_length&#39;</span><span class="p">,</span>  <span class="c1"># Already logged as rollout/response_length</span>
+                <span class="s1">&#39;total_length&#39;</span><span class="p">,</span>  <span class="c1"># Rollout-specific metric</span>
+                <span class="s1">&#39;num_actions&#39;</span><span class="p">,</span>  <span class="c1"># Rollout-specific metric</span>
+                <span class="s1">&#39;return&#39;</span><span class="p">,</span>  <span class="c1"># Rollout-specific metric (computed from rewards)</span>
+            <span class="p">}</span>
+
+            <span class="c1"># Also exclude reward_metrics sub-keys (format_reward, accuracy_reward)</span>
+            <span class="n">ROLLOUT_ONLY_METRIC_PREFIXES</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;reward_metrics/&#39;</span><span class="p">}</span>
+
+            <span class="c1"># Separate rollout and training metrics for clarity</span>
+            <span class="n">rollout_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">train_metrics</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">logs_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;rollout_&#39;</span><span class="p">):</span>
+                    <span class="c1"># Remove &#39;rollout_&#39; prefix and log under rollout/ namespace</span>
+                    <span class="n">clean_key</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;rollout_&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">rollout_metrics</span><span class="p">[</span><span class="n">clean_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="k">elif</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ROLLOUT_ONLY_METRICS</span><span class="p">:</span>
+                    <span class="c1"># Skip metrics that are already in rollout/ namespace</span>
+                    <span class="k">continue</span>
+                <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="n">ROLLOUT_ONLY_METRIC_PREFIXES</span><span class="p">):</span>
+                    <span class="c1"># Skip reward_metrics/* sub-keys</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Training-specific metrics go under train/ namespace</span>
+                    <span class="n">train_metrics</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
             <span class="c1"># Wandb logging</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
-                <span class="n">logs</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;train/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
-                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">{</span>
-                        <span class="o">**</span><span class="n">logs_dict</span><span class="p">,</span>
-                        <span class="s2">&quot;global_step&quot;</span><span class="p">:</span> <span class="n">global_step</span><span class="p">,</span>
-                    <span class="p">}</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="p">}</span>
+                <span class="c1"># Log rollout metrics with rollout/ prefix</span>
+                <span class="k">if</span> <span class="n">rollout_metrics</span><span class="p">:</span>
+                    <span class="n">rollout_logs</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s2">&quot;rollout/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rollout_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                    <span class="n">rollout_logs</span><span class="p">[</span><span class="s2">&quot;rollout/global_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_step</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rollout_logs</span><span class="p">)</span>
+
+                <span class="c1"># Log training metrics with train/ prefix</span>
+                <span class="k">if</span> <span class="n">train_metrics</span><span class="p">:</span>
+                    <span class="n">train_logs</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s2">&quot;train/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">train_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                    <span class="n">train_logs</span><span class="p">[</span><span class="s2">&quot;train/global_step&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">global_step</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">train_logs</span><span class="p">)</span>
+
+                <span class="c1"># Log performance stats</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">logs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s2">&quot;perf/experience_maker/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">logs</span><span class="p">)</span>
+                    <span class="n">perf_logs</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s2">&quot;perf/experience_maker/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_wandb</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">perf_logs</span><span class="p">)</span>
+
             <span class="c1"># TensorBoard logging</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
-                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">logs_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">rollout_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;rollout/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">train_metrics</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_tensorboard</span><span class="o">.</span><span class="n">add_scalar</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;train/</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">global_step</span><span class="p">)</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">experience_maker</span><span class="o">.</span><span class="n">perf_stats</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>

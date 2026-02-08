@@ -302,7 +302,7 @@
   <h1>Source code for lightrft.strategy.sglang_utils</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">This module provides functionality for initializing and configuring a SGLang generation engine</span>
-<span class="sd">for reinforcement learning with human feedback (RLHF) applications. It handles distributed</span>
+<span class="sd">for RLHF and RLVR applications. It handles distributed</span>
 <span class="sd">training setup, device coordination, and engine initialization with appropriate parameters.</span>
 
 <span class="sd">The main component is the get_sglang_engine function which creates and returns a configured</span>
@@ -314,9 +314,6 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 
-<span class="c1"># Standard library imports</span>
-
-<span class="c1"># Third-party library imports</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
 <span class="c1"># Local application imports</span>
@@ -368,7 +365,7 @@
     <span class="n">engine_mem_util</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">enable_engine_sleep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">tp_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">skip_tokenizer_init</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">skip_tokenizer_init</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
     <span class="n">disable_cuda_graph</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
@@ -394,7 +391,9 @@
 <span class="sd">    :type enable_engine_sleep: bool</span>
 <span class="sd">    :param tp_size: Tensor parallelism size for distributed inference</span>
 <span class="sd">    :type tp_size: int</span>
-<span class="sd">    :param skip_tokenizer_init: Whether to skip tokenizer initialization for faster startup</span>
+<span class="sd">    :param skip_tokenizer_init: Whether to skip tokenizer initialization for faster startup.</span>
+<span class="sd">                                Defaults to False as the tokenizer is needed to process</span>
+<span class="sd">                                text inputs (required for VLM use cases)</span>
 <span class="sd">    :type skip_tokenizer_init: bool</span>
 <span class="sd">    :param dtype: Data type for model weights and computations (&quot;bfloat16&quot; or &quot;float16&quot;)</span>
 <span class="sd">    :type dtype: str</span>

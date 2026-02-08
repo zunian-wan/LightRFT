@@ -345,6 +345,46 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span> <span class="o">=</span> <span class="n">inference_engine</span></div>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_map_weight_name_for_sglang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Map weight names from training model format to SGLang format.</span>
+
+<span class="sd">        Training model (Qwen2.5-VL with wrapper):</span>
+<span class="sd">        - model.visual.xxx</span>
+<span class="sd">        - model.language_model.embed_tokens</span>
+<span class="sd">        - model.language_model.layers.xxx</span>
+<span class="sd">        - model.language_model.norm</span>
+<span class="sd">        - model.language_model.lm_head</span>
+
+<span class="sd">        SGLang expects:</span>
+<span class="sd">        - visual.xxx</span>
+<span class="sd">        - model.embed_tokens</span>
+<span class="sd">        - model.layers.xxx</span>
+<span class="sd">        - model.norm</span>
+<span class="sd">        - lm_head</span>
+
+<span class="sd">        :param name: Original weight name from training model</span>
+<span class="sd">        :return: Mapped weight name for SGLang</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Step 1: Remove outermost &quot;model.&quot; prefix if present</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;model.&quot;</span><span class="p">):</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[</span><span class="mi">6</span><span class="p">:]</span>  <span class="c1"># Remove &quot;model.&quot;</span>
+
+        <span class="c1"># Step 2: Handle language_model prefix mapping</span>
+        <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;language_model.&quot;</span><span class="p">):</span>
+            <span class="c1"># Remove &quot;language_model.&quot; prefix</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[</span><span class="mi">15</span><span class="p">:]</span>  <span class="c1"># Remove &quot;language_model.&quot;</span>
+
+            <span class="c1"># For lm_head, keep as is (no &quot;model.&quot; prefix)</span>
+            <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;lm_head&quot;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">name</span>
+
+            <span class="c1"># For other components (embed_tokens, layers, norm), add &quot;model.&quot; prefix</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;model.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="c1"># Step 3: Return as is for other cases (e.g., visual.xxx)</span>
+        <span class="k">return</span> <span class="n">name</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_deepspeed_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Broadcast model weights using DeepSpeed&#39;s ZeRO optimization.</span>
@@ -372,9 +412,20 @@
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">engine_type</span> <span class="o">==</span> <span class="s2">&quot;vllm&quot;</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">llm_engine</span><span class="o">.</span><span class="n">model_executor</span><span class="o">.</span><span class="n">collective_rpc</span><span class="p">(</span><span class="s2">&quot;update_weight&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">)</span>
                 <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">engine_type</span> <span class="o">==</span> <span class="s2">&quot;sglang&quot;</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">update_weights_from_tensor</span><span class="p">(</span>
-                        <span class="n">name</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flush_cache</span><span class="o">=</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">num_params</span><span class="p">)</span>
-                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">text_only</span><span class="p">:</span>
+                        <span class="c1"># for LLM</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">update_weights_from_tensor</span><span class="p">(</span>
+                            <span class="n">name</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flush_cache</span><span class="o">=</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">num_params</span><span class="p">)</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># for VLM</span>
+                        <span class="c1"># Map weight names from training model to SGLang format</span>
+                        <span class="c1"># Training model: model.visual.xxx, model.language_model.xxx</span>
+                        <span class="c1"># SGLang expects: visual.xxx, model.xxx (for language model), lm_head</span>
+                        <span class="n">sglang_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_weight_name_for_sglang</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">update_weights_from_tensor</span><span class="p">(</span>
+                            <span class="n">sglang_name</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flush_cache</span><span class="o">=</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">num_params</span><span class="p">)</span>
+                        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_fsdp_v2_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -407,9 +458,21 @@
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">llm_engine</span><span class="o">.</span><span class="n">model_executor</span><span class="o">.</span><span class="n">collective_rpc</span><span class="p">(</span><span class="s2">&quot;update_weight&quot;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="n">kwargs</span><span class="p">)</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">engine_type</span> <span class="o">==</span> <span class="s2">&quot;sglang&quot;</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">update_weights_from_tensor</span><span class="p">(</span>
-                    <span class="n">name</span><span class="p">,</span> <span class="n">full_param</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flush_cache</span><span class="o">=</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">num_params</span><span class="p">)</span>
-                <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">text_only</span><span class="p">:</span>
+                    <span class="c1"># for LLM</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">update_weights_from_tensor</span><span class="p">(</span>
+                        <span class="n">name</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flush_cache</span><span class="o">=</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">num_params</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># for VLM</span>
+                    <span class="c1"># Map weight names from training model to SGLang format</span>
+                    <span class="c1"># Training model: model.visual.xxx, model.language_model.xxx</span>
+                    <span class="c1"># SGLang expects: visual.xxx, model.xxx (for language model), lm_head</span>
+                    <span class="n">sglang_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_map_weight_name_for_sglang</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">inference_engine</span><span class="o">.</span><span class="n">update_weights_from_tensor</span><span class="p">(</span>
+                        <span class="n">sglang_name</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">flush_cache</span><span class="o">=</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="n">num_params</span><span class="p">)</span>
+                    <span class="p">)</span>
+
             <span class="k">del</span> <span class="n">param_on_device</span>
             <span class="k">del</span> <span class="n">full_param</span>
 

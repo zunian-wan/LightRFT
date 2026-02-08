@@ -516,6 +516,36 @@
                     <span class="n">experience</span> <span class="o">=</span> <span class="n">make_experience_batch</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="n">packing_samples</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">packing_samples</span><span class="p">)</span>
                 <span class="n">experience</span><span class="o">.</span><span class="n">to_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
+                <span class="c1"># ======================================================================================</span>
+                <span class="c1"># Validate data BEFORE calling training_step to prevent execution path divergence</span>
+                <span class="c1"># If validation is done inside training_step, different ranks may follow different code paths</span>
+                <span class="c1"># (some return early, others continue), causing deadlock in collective communication ops.</span>
+
+                <span class="c1"># Step 1: Each rank validates its local data</span>
+                <span class="n">should_skip_local</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">VLM</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_validate_qwen_vl_tensors&#39;</span><span class="p">):</span>
+                    <span class="c1"># Call the same validation logic used in training_step_actor</span>
+                    <span class="n">sequences</span> <span class="o">=</span> <span class="n">experience</span><span class="o">.</span><span class="n">sequences</span>
+                    <span class="n">pixel_values</span> <span class="o">=</span> <span class="n">experience</span><span class="o">.</span><span class="n">pixel_values</span>
+
+                    <span class="c1"># Validate before any forward pass</span>
+                    <span class="n">is_valid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_qwen_vl_tensors</span><span class="p">(</span>
+                        <span class="n">sequences</span><span class="p">,</span> <span class="n">pixel_values</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;pre_training_validation&quot;</span>
+                    <span class="p">)</span>
+                    <span class="n">should_skip_local</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">is_valid</span>
+
+                <span class="c1"># Step 2: Synchronize skip decision across all ranks via all_reduce</span>
+                <span class="c1"># This ensures all ranks agree on whether to skip, preventing execution divergence</span>
+                <span class="n">skip_flag</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">should_skip_local</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">skip_flag</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">ReduceOp</span><span class="o">.</span><span class="n">MAX</span><span class="p">)</span>
+
+                <span class="c1"># Step 3: Collectively skip if ANY rank detected invalid data</span>
+                <span class="k">if</span> <span class="n">skip_flag</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">is_rank_0</span><span class="p">():</span>
+                        <span class="n">pbar</span><span class="o">.</span><span class="n">set_description</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Train epoch [</span><span class="si">{</span><span class="n">epoch</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_epochs</span><span class="si">}</span><span class="s2">] (skipping invalid batch)&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>  <span class="c1"># All ranks skip together - no deadlock</span>
+                <span class="c1"># ======================================================================================</span>
+
                 <span class="c1"># Create entropy_mask if high_entropy_token_ratio &gt; 0 and action_entropy is available</span>
                 <span class="n">entropy_mask</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">experience</span><span class="p">,</span> <span class="s1">&#39;action_entropy&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">experience</span><span class="o">.</span><span class="n">action_entropy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

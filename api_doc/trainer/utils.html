@@ -313,7 +313,8 @@ for tracking running statistics of data streams.</p>
 <p>The main components are:
 - compute_clip_fraction: Calculates the fraction of tensor elements that fall outside specified bounds
 - RunningMoments: Maintains running mean and standard deviation statistics for streaming data
-- get_cpgd_advantages_returns: Computes advantages and returns for CPGD algorithm</p>
+- get_cpgd_advantages_returns: Computes advantages and returns for CPGD algorithm
+- vllm_ge_0130: Version checking utility for vLLM compatibility</p>
 <p>These utilities are particularly useful in RL algorithms like PPO where clipping statistics and
 normalization are important for training stability and monitoring.</p>
 <dl class="py class">
@@ -329,13 +330,15 @@ inputs in reinforcement learning or for monitoring training statistics.</p>
 with existing running statistics, ensuring numerical stability even with large
 amounts of data.</p>
 <p>Adapted from <a class="reference external" href="https://github.com/alibaba/ROLL">https://github.com/alibaba/ROLL</a></p>
-<p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">moments</span> <span class="o">=</span> <span class="n">RunningMoments</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">batch1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">mean1</span><span class="p">,</span> <span class="n">std1</span> <span class="o">=</span> <span class="n">moments</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch1</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">batch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">mean2</span><span class="p">,</span> <span class="n">std2</span> <span class="o">=</span> <span class="n">moments</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch2</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running mean: </span><span class="si">{</span><span class="n">moments</span><span class="o">.</span><span class="n">mean</span><span class="si">}</span><span class="s2">, Running std: </span><span class="si">{</span><span class="n">moments</span><span class="o">.</span><span class="n">std</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">python</span>
+
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">moments</span> <span class="o">=</span> <span class="n">RunningMoments</span><span class="p">()</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">batch1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">mean1</span><span class="p">,</span> <span class="n">std1</span> <span class="o">=</span> <span class="n">moments</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch1</span><span class="p">)</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">batch2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">mean2</span><span class="p">,</span> <span class="n">std2</span> <span class="o">=</span> <span class="n">moments</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">batch2</span><span class="p">)</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running mean: </span><span class="si">{</span><span class="n">moments</span><span class="o">.</span><span class="n">mean</span><span class="si">}</span><span class="s2">, Running std: </span><span class="si">{</span><span class="n">moments</span><span class="o">.</span><span class="n">std</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <dl class="py method">
@@ -357,11 +360,13 @@ storing all previous data points.</p>
 <dd class="field-odd"><p>Tuple[float, float]</p>
 </dd>
 </dl>
-<p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">moments</span> <span class="o">=</span> <span class="n">RunningMoments</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">new_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">batch_mean</span><span class="p">,</span> <span class="n">batch_std</span> <span class="o">=</span> <span class="n">moments</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">new_data</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Batch mean: </span><span class="si">{</span><span class="n">batch_mean</span><span class="si">}</span><span class="s2">, Batch std: </span><span class="si">{</span><span class="n">batch_std</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">python</span>
+
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">moments</span> <span class="o">=</span> <span class="n">RunningMoments</span><span class="p">()</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">new_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">])</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">batch_mean</span><span class="p">,</span> <span class="n">batch_std</span> <span class="o">=</span> <span class="n">moments</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">new_data</span><span class="p">)</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Batch mean: </span><span class="si">{</span><span class="n">batch_mean</span><span class="si">}</span><span class="s2">, Batch std: </span><span class="si">{</span><span class="n">batch_std</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -392,10 +397,12 @@ clipped values in the input tensor.</p>
 <dd class="field-odd"><p>torch.Tensor</p>
 </dd>
 </dl>
-<p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">values</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">]])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">clip_fraction</span> <span class="o">=</span> <span class="n">compute_clip_fraction</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">clip_max</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">clip_min</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">clip_fraction</span><span class="p">)</span>  <span class="c1"># Should show fraction of values outside [1.0, 2.0]</span>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">code</span><span class="o">-</span><span class="n">block</span><span class="p">::</span> <span class="n">python</span>
+
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">values</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">]])</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="n">clip_fraction</span> <span class="o">=</span> <span class="n">compute_clip_fraction</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">clip_max</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">clip_min</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+    <span class="o">&gt;&gt;&gt;</span> <span class="nb">print</span><span class="p">(</span><span class="n">clip_fraction</span><span class="p">)</span>  <span class="c1"># Should show fraction of values outside [1.0, 2.0]</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -479,6 +486,22 @@ to be called outside the optimization graph.</p>
 </div>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="lightrft.trainer.utils.vllm_ge_0130">
+<span class="sig-prename descclassname"><span class="pre">lightrft.trainer.utils.</span></span><span class="sig-name descname"><span class="pre">vllm_ge_0130</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/lightrft/trainer/utils.html#vllm_ge_0130"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.trainer.utils.vllm_ge_0130" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if vLLM version is greater than or equal to 0.13.0.</p>
+<p>Starting from vLLM 0.13.0, truncate_prompt_tokens parameter must not exceed
+max_model_len, requiring additional validation logic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if vLLM version &gt;= 0.13.0, False otherwise</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 
 
@@ -528,6 +551,7 @@ to be called outside the optimization graph.</p>
 <li><a class="reference internal" href="#lightrft.trainer.utils.compute_clip_fraction"><code class="docutils literal notranslate"><span class="pre">compute_clip_fraction()</span></code></a></li>
 <li><a class="reference internal" href="#lightrft.trainer.utils.fire_sampling"><code class="docutils literal notranslate"><span class="pre">fire_sampling()</span></code></a></li>
 <li><a class="reference internal" href="#lightrft.trainer.utils.get_cpgd_advantages_returns"><code class="docutils literal notranslate"><span class="pre">get_cpgd_advantages_returns()</span></code></a></li>
+<li><a class="reference internal" href="#lightrft.trainer.utils.vllm_ge_0130"><code class="docutils literal notranslate"><span class="pre">vllm_ge_0130()</span></code></a></li>
 </ul>
 </li>
 </ul>

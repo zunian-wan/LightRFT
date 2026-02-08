@@ -310,6 +310,10 @@
 <span class="sd">model execution and provides methods for generating text, updating model weights, and</span>
 <span class="sd">managing memory resources.</span>
 
+<span class="sd">The module is designed to work with different versions of SGLang:</span>
+<span class="sd">- Supports both old and new Engine import paths</span>
+<span class="sd">- Compatible with various SGLang API changes across versions</span>
+
 <span class="sd">The module is designed to work with the SGLang runtime (srt) system and supports features</span>
 <span class="sd">such as batch processing, custom sampling parameters, and LoRA fine-tuning.</span>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -321,17 +325,26 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dist</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.model_executor.model_runner</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalSerializedTensor</span>
 
+<span class="c1"># Try multiple import paths for Engine to ensure compatibility across versions</span>
 <span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">Engine</span>
-<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">sglang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Engine</span>
+    <span class="c1"># Newer versions (v0.5.0+): Engine is in sglang.srt.entrypoints.engine</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.entrypoints.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Engine</span>
+<span class="k">except</span> <span class="p">(</span><span class="ne">ModuleNotFoundError</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Some versions: Engine might be in sglang.srt.server</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">Engine</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ModuleNotFoundError</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">):</span>
+        <span class="c1"># Fallback: try sglang directly</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sglang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Engine</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiprocessingSerializer</span><span class="p">,</span> <span class="n">broadcast_pyobj</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.distributed.tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">DTensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.strategy.utils.distributed_util</span><span class="w"> </span><span class="kn">import</span> <span class="n">gather_inputs_object_for_inference</span>
 
-<span class="c1"># this line is necessary, it is used to avoid the memory occupation problem</span>
-<span class="c1"># this import will implicitly apply the release_memory_occupation and resume_memory_occupation into sglang</span>
+<span class="c1"># This line is necessary, it is used to avoid the memory occupation problem</span>
+<span class="c1"># This import will implicitly apply the release_memory_occupation and resume_memory_occupation into sglang</span>
+<span class="c1"># For new versions of sglang (v0.5.6.post2+), the methods are already built-in, so no patching occurs</span>
+<span class="c1"># For old versions, the methods will be monkey-patched into the Scheduler class</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.sgl_model_saver</span><span class="w"> </span><span class="kn">import</span> <span class="n">release_memory_occupation</span><span class="p">,</span> <span class="n">resume_memory_occupation</span>  <span class="c1"># noqa</span>
 
 
@@ -475,6 +488,7 @@
                 <span class="n">input_ids</span> <span class="o">=</span> <span class="n">gather_inputs_object_for_inference</span><span class="p">(</span><span class="n">input_ids</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_group_cpu</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">image_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">image_data</span> <span class="o">=</span> <span class="n">gather_inputs_object_for_inference</span><span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_group_cpu</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
                 <span class="n">prompt</span><span class="o">=</span><span class="n">prompt</span><span class="p">,</span>
@@ -491,14 +505,25 @@
             <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># Most naive implementation, can extract tensor and send via gloo if too slow</span>
-            <span class="p">[</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="n">broadcast_pyobj</span><span class="p">(</span>
-                <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="n">output</span><span class="p">],</span>
-                <span class="n">rank</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_tp_rank</span><span class="p">,</span>
-                <span class="n">dist_group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_group_cpu</span><span class="p">,</span>
-                <span class="n">src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_leader_rank</span><span class="p">,</span>
-                <span class="c1"># force_cpu_device=False,   # this requires sgl&gt;=0.4.6</span>
-            <span class="p">)</span>
+            <span class="n">global_rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">()</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="p">[</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="n">broadcast_pyobj</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="n">output</span><span class="p">],</span>
+                    <span class="n">rank</span><span class="o">=</span><span class="n">global_rank</span><span class="p">,</span>
+                    <span class="n">dist_group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_group_cpu</span><span class="p">,</span>
+                    <span class="n">src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_leader_rank</span><span class="p">,</span>
+                    <span class="n">force_cpu_device</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="c1"># Older versions don&#39;t support force_cpu_device parameter</span>
+                <span class="p">[</span><span class="n">output</span><span class="p">]</span> <span class="o">=</span> <span class="n">broadcast_pyobj</span><span class="p">(</span>
+                    <span class="n">data</span><span class="o">=</span><span class="p">[</span><span class="n">output</span><span class="p">],</span>
+                    <span class="n">rank</span><span class="o">=</span><span class="n">global_rank</span><span class="p">,</span>
+                    <span class="n">dist_group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_group_cpu</span><span class="p">,</span>
+                    <span class="n">src</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_leader_rank</span><span class="p">,</span>
+                <span class="p">)</span>
+
             <span class="k">if</span> <span class="n">gather_inputs</span><span class="p">:</span>
                 <span class="n">num_per_rank</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">output</span><span class="p">)</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_size</span>
                 <span class="n">output</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_tp_rank</span> <span class="o">*</span> <span class="n">num_per_rank</span><span class="p">:(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tp_rank</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">num_per_rank</span><span class="p">]</span>
@@ -562,27 +587,53 @@
                 <span class="n">flush_cache</span><span class="o">=</span><span class="n">flush_cache</span><span class="p">,</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="RLGenerationEngine.sleep"><a class="viewcode-back" href="../../../../api_doc/strategy/sglang_utils/sglang_engine.html#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.sleep">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">sleep</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="RLGenerationEngine.sleep"><a class="viewcode-back" href="../../../../api_doc/strategy/sglang_utils/sglang_engine.html#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.sleep">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">sleep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">release_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Release memory resources temporarily to free up GPU memory.</span>
 
-<span class="sd">        This method can be used to temporarily reduce memory usage when the engine</span>
-<span class="sd">        is not actively generating text. It&#39;s particularly useful in scenarios where</span>
-<span class="sd">        multiple models or processes need to share GPU memory resources efficiently.</span>
+<span class="sd">        This method releases KV cache and CUDA graph memory to free up GPU resources</span>
+<span class="sd">        during idle periods. By default, model weights are kept in memory to avoid</span>
+<span class="sd">        the overhead and risk of saving/restoring them.</span>
+
+<span class="sd">        :param release_weights: Whether to also release weights memory. Default is False.</span>
+<span class="sd">                               Set to True only if you need maximum memory savings and</span>
+<span class="sd">                               understand the risks (SGLang may not properly restore weights).</span>
+<span class="sd">        :type release_weights: bool</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            After calling sleep(), you must call wake_up() before using the engine again.</span>
+<span class="sd">            - By default, only KV cache and CUDA graph are released (recommended)</span>
+<span class="sd">            - Weights are kept in memory unless explicitly requested</span>
+<span class="sd">            - After calling sleep(), you must call wake_up() before using the engine again</span>
+<span class="sd">            - ⚠️ WARNING: Releasing weights may cause generation issues due to SGLang limitations</span>
 
 <span class="sd">        Example::</span>
 
-<span class="sd">            &gt;&gt;&gt; engine.sleep()  # Free up memory during idle periods</span>
-<span class="sd">            &gt;&gt;&gt; # ... other operations that need GPU memory ...</span>
-<span class="sd">            &gt;&gt;&gt; engine.wake_up()  # Resume before next generation</span>
+<span class="sd">            &gt;&gt;&gt; # Standard usage: keep weights in memory (recommended)</span>
+<span class="sd">            &gt;&gt;&gt; engine.sleep()</span>
+<span class="sd">            &gt;&gt;&gt; # ... other operations ...</span>
+<span class="sd">            &gt;&gt;&gt; engine.wake_up()</span>
+<span class="sd">            &gt;&gt;&gt;</span>
+<span class="sd">            &gt;&gt;&gt; # Maximum memory savings: also release weights (use with caution)</span>
+<span class="sd">            &gt;&gt;&gt; engine.sleep(release_weights=True)</span>
+<span class="sd">            &gt;&gt;&gt; engine.wake_up(release_weights=True)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">release_memory_occupation</span><span class="p">()</span></div>
+            <span class="c1"># Determine which memory types to release</span>
+            <span class="k">if</span> <span class="n">release_weights</span><span class="p">:</span>
+                <span class="c1"># Release all memory types (not recommended due to SGLang limitations)</span>
+                <span class="n">tags</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Will default to GPU_MEMORY_ALL_TYPES in SGLang</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Only release KV cache and CUDA graph, keep weights (recommended)</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.constants</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+                    <span class="n">GPU_MEMORY_TYPE_CUDA_GRAPH</span><span class="p">,</span>
+                    <span class="n">GPU_MEMORY_TYPE_KV_CACHE</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">GPU_MEMORY_TYPE_KV_CACHE</span><span class="p">,</span> <span class="n">GPU_MEMORY_TYPE_CUDA_GRAPH</span><span class="p">]</span>
 
-<div class="viewcode-block" id="RLGenerationEngine.wake_up"><a class="viewcode-back" href="../../../../api_doc/strategy/sglang_utils/sglang_engine.html#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.wake_up">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">wake_up</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="c1"># Directly pass tags to engine</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">release_memory_occupation</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RLGenerationEngine.wake_up"><a class="viewcode-back" href="../../../../api_doc/strategy/sglang_utils/sglang_engine.html#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.wake_up">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">wake_up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">release_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Resume memory occupation after a call to sleep().</span>
 
@@ -590,15 +641,41 @@
 <span class="sd">        after a previous call to sleep(). It restores the engine to its fully</span>
 <span class="sd">        operational state with all necessary memory allocations.</span>
 
+<span class="sd">        :param release_weights: Must match the value used in sleep(). Default is False.</span>
+<span class="sd">        :type release_weights: bool</span>
+
+<span class="sd">        Important:</span>
+<span class="sd">            - The release_weights parameter must match what was used in sleep()</span>
+<span class="sd">            - If you called sleep(release_weights=False), call wake_up(release_weights=False)</span>
+<span class="sd">            - If you called sleep(release_weights=True), call wake_up(release_weights=True)</span>
+
 <span class="sd">        Example::</span>
 
-<span class="sd">            &gt;&gt;&gt; engine.sleep()    # Free memory</span>
+<span class="sd">            &gt;&gt;&gt; # Standard usage (recommended)</span>
+<span class="sd">            &gt;&gt;&gt; engine.sleep()              # Only KV cache &amp; CUDA graph released</span>
 <span class="sd">            &gt;&gt;&gt; # ... do other work ...</span>
-<span class="sd">            &gt;&gt;&gt; engine.wake_up()  # Prepare engine for generation</span>
+<span class="sd">            &gt;&gt;&gt; engine.wake_up()            # Only KV cache &amp; CUDA graph restored</span>
 <span class="sd">            &gt;&gt;&gt; result = engine.generate(&quot;Hello world&quot;)</span>
+<span class="sd">            &gt;&gt;&gt;</span>
+<span class="sd">            &gt;&gt;&gt; # If weights were released (use with caution)</span>
+<span class="sd">            &gt;&gt;&gt; engine.sleep(release_weights=True)</span>
+<span class="sd">            &gt;&gt;&gt; engine.wake_up(release_weights=True)  # Must match!</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tp_rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">resume_memory_occupation</span><span class="p">()</span></div>
+            <span class="c1"># Determine which memory types to resume</span>
+            <span class="k">if</span> <span class="n">release_weights</span><span class="p">:</span>
+                <span class="c1"># Resume all memory types</span>
+                <span class="n">tags</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Will default to GPU_MEMORY_ALL_TYPES in SGLang</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Only resume KV cache and CUDA graph (recommended)</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.constants</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+                    <span class="n">GPU_MEMORY_TYPE_CUDA_GRAPH</span><span class="p">,</span>
+                    <span class="n">GPU_MEMORY_TYPE_KV_CACHE</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">tags</span> <span class="o">=</span> <span class="p">[</span><span class="n">GPU_MEMORY_TYPE_KV_CACHE</span><span class="p">,</span> <span class="n">GPU_MEMORY_TYPE_CUDA_GRAPH</span><span class="p">]</span>
+
+            <span class="c1"># Directly pass tags to engine</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_engine</span><span class="o">.</span><span class="n">resume_memory_occupation</span><span class="p">(</span><span class="n">tags</span><span class="o">=</span><span class="n">tags</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="RLGenerationEngine.shutdown"><a class="viewcode-back" href="../../../../api_doc/strategy/sglang_utils/sglang_engine.html#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.shutdown">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>

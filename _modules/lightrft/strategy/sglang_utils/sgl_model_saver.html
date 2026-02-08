@@ -309,18 +309,30 @@
 <span class="sd">of GPU memory occupied by model weights and states. This is particularly useful in scenarios</span>
 <span class="sd">where multiple models or processes need to share limited GPU memory resources efficiently.</span>
 
-<span class="sd">The module patches the SGLang Scheduler class with additional methods for memory management,</span>
-<span class="sd">enabling dynamic memory occupation control during model inference and training workflows.</span>
+<span class="sd">This module is designed to be compatible with different versions of SGLang:</span>
+<span class="sd">- For SGLang v0.5.6.post2+: Uses built-in methods from SchedulerUpdateWeightsMixin</span>
+<span class="sd">- For older versions: Provides backward-compatible monkey patching</span>
+
+<span class="sd">The module automatically detects which approach to use based on the SGLang version.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">sglang</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sglang.srt.managers.scheduler</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">scheduler_module</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.managers.io_struct</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">ReleaseMemoryOccupationReqInput</span><span class="p">,</span>
     <span class="n">ReleaseMemoryOccupationReqOutput</span><span class="p">,</span>
     <span class="n">ResumeMemoryOccupationReqInput</span><span class="p">,</span>
     <span class="n">ResumeMemoryOccupationReqOutput</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.managers.scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">_export_static_state</span><span class="p">,</span> <span class="n">_import_static_state</span>
+
+<span class="c1"># Try to import from new location (v0.5.6.post2+), fallback to old location</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.managers.scheduler_update_weights_mixin</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_export_static_state</span><span class="p">,</span>
+        <span class="n">_import_static_state</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">sglang.srt.managers.scheduler</span><span class="w"> </span><span class="kn">import</span> <span class="n">_export_static_state</span><span class="p">,</span> <span class="n">_import_static_state</span>
 
 
 <div class="viewcode-block" id="release_memory_occupation"><a class="viewcode-back" href="../../../../api_doc/strategy/sglang_utils/sgl_model_saver.html#lightrft.strategy.sglang_utils.sgl_model_saver.release_memory_occupation">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">release_memory_occupation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recv_req</span><span class="p">:</span> <span class="n">ReleaseMemoryOccupationReqInput</span><span class="p">):</span>
@@ -331,12 +343,14 @@
 <span class="sd">    to CPU memory. It&#39;s designed to be used when the model is temporarily not needed,</span>
 <span class="sd">    allowing other processes or models to utilize the freed GPU memory.</span>
 
+<span class="sd">    Compatible with both old and new SGLang versions by detecting the model runner location.</span>
+
 <span class="sd">    The method performs the following operations:</span>
-<span class="sd">    1. Validates the memory saver adapter</span>
-<span class="sd">    2. Exports and stashes the model&#39;s static state</span>
-<span class="sd">    3. Clones model parameters to CPU memory if not already done</span>
-<span class="sd">    4. Pauses the memory saver adapter</span>
-<span class="sd">    5. Flushes the model cache</span>
+<span class="sd">        1. Validates the memory saver adapter</span>
+<span class="sd">        2. Exports and stashes the model&#39;s static state</span>
+<span class="sd">        3. Clones model parameters to CPU memory if not already done</span>
+<span class="sd">        4. Pauses the memory saver adapter</span>
+<span class="sd">        5. Flushes the model cache</span>
 
 <span class="sd">    :param recv_req: Request input for releasing memory occupation</span>
 <span class="sd">    :type recv_req: ReleaseMemoryOccupationReqInput</span>
@@ -345,17 +359,25 @@
 <span class="sd">    :rtype: ReleaseMemoryOccupationReqOutput</span>
 
 <span class="sd">    Example::</span>
-
 <span class="sd">        &gt;&gt;&gt; scheduler = Scheduler(...)</span>
 <span class="sd">        &gt;&gt;&gt; req = ReleaseMemoryOccupationReqInput()</span>
 <span class="sd">        &gt;&gt;&gt; response = scheduler.release_memory_occupation(req)</span>
 <span class="sd">        &gt;&gt;&gt; # GPU memory is now freed for other uses</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get model reference - compatible with different SGLang versions</span>
+    <span class="c1"># Old version: self.tp_worker.worker.model_runner.model</span>
+    <span class="c1"># New version (v0.5.6+): self.tp_worker.model_runner.model</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="p">,</span> <span class="s1">&#39;worker&#39;</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span>
+
     <span class="bp">self</span><span class="o">.</span><span class="n">memory_saver_adapter</span><span class="o">.</span><span class="n">check_validity</span><span class="p">(</span><span class="n">caller_name</span><span class="o">=</span><span class="s2">&quot;release_memory_occupation&quot;</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">stashed_model_static_state</span> <span class="o">=</span> <span class="n">_export_static_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">stashed_model_static_state</span> <span class="o">=</span> <span class="n">_export_static_state</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;stashed_weights&quot;</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stashed_weights</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">stashed_weights</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
 
     <span class="bp">self</span><span class="o">.</span><span class="n">memory_saver_adapter</span><span class="o">.</span><span class="n">pause</span><span class="p">()</span>
@@ -372,12 +394,14 @@
 <span class="sd">    It should be called after release_memory_occupation() when the model needs to</span>
 <span class="sd">    be used again.</span>
 
+<span class="sd">    Compatible with both old and new SGLang versions by detecting the model runner location.</span>
+
 <span class="sd">    The method performs the following operations:</span>
-<span class="sd">    1. Validates the memory saver adapter</span>
-<span class="sd">    2. Resumes the memory saver adapter</span>
-<span class="sd">    3. Imports the previously stashed static state</span>
-<span class="sd">    4. Restores model parameters from CPU to GPU</span>
-<span class="sd">    5. Cleans up temporary static state storage</span>
+<span class="sd">        1. Validates the memory saver adapter</span>
+<span class="sd">        2. Resumes the memory saver adapter</span>
+<span class="sd">        3. Imports the previously stashed static state</span>
+<span class="sd">        4. Restores model parameters from CPU to GPU</span>
+<span class="sd">        5. Cleans up temporary static state storage</span>
 
 <span class="sd">    :param recv_req: Request input for resuming memory occupation</span>
 <span class="sd">    :type recv_req: ResumeMemoryOccupationReqInput</span>
@@ -386,16 +410,21 @@
 <span class="sd">    :rtype: ResumeMemoryOccupationReqOutput</span>
 
 <span class="sd">    Example::</span>
-
 <span class="sd">        &gt;&gt;&gt; scheduler = Scheduler(...)</span>
 <span class="sd">        &gt;&gt;&gt; # After previously calling release_memory_occupation()</span>
 <span class="sd">        &gt;&gt;&gt; req = ResumeMemoryOccupationReqInput()</span>
 <span class="sd">        &gt;&gt;&gt; response = scheduler.resume_memory_occupation(req)</span>
 <span class="sd">        &gt;&gt;&gt; # Model is now ready for inference again</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get model reference - compatible with different SGLang versions</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="p">,</span> <span class="s1">&#39;worker&#39;</span><span class="p">):</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span>
+
     <span class="bp">self</span><span class="o">.</span><span class="n">memory_saver_adapter</span><span class="o">.</span><span class="n">check_validity</span><span class="p">(</span><span class="n">caller_name</span><span class="o">=</span><span class="s2">&quot;resume_memory_occupation&quot;</span><span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">memory_saver_adapter</span><span class="o">.</span><span class="n">resume</span><span class="p">()</span>
-    <span class="n">_import_static_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stashed_model_static_state</span><span class="p">)</span>
+    <span class="n">_import_static_state</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stashed_model_static_state</span><span class="p">)</span>
     <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">stashed_model_static_state</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_import_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">static_params</span><span class="p">):</span>
@@ -408,16 +437,21 @@
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
             <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">static_params</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
 
-    <span class="n">_import_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tp_worker</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">model_runner</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stashed_weights</span><span class="p">)</span>
+    <span class="n">_import_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stashed_weights</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ResumeMemoryOccupationReqOutput</span><span class="p">()</span></div>
 
 
-<span class="c1"># These two lines are used to save and restore the model weights, addressing memory occupation issues.</span>
-<span class="c1"># The sglang_engine.py module will import this file to apply the release_memory_occupation</span>
-<span class="c1"># and resume_memory_occupation methods to the SGLang Scheduler class.</span>
-<span class="n">sglang</span><span class="o">.</span><span class="n">srt</span><span class="o">.</span><span class="n">managers</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">Scheduler</span><span class="o">.</span><span class="n">release_memory_occupation</span> <span class="o">=</span> <span class="n">release_memory_occupation</span>
-<span class="n">sglang</span><span class="o">.</span><span class="n">srt</span><span class="o">.</span><span class="n">managers</span><span class="o">.</span><span class="n">scheduler</span><span class="o">.</span><span class="n">Scheduler</span><span class="o">.</span><span class="n">resume_memory_occupation</span> <span class="o">=</span> <span class="n">resume_memory_occupation</span>
+<span class="c1"># Apply monkey patching only if the Scheduler class doesn&#39;t already have these methods</span>
+<span class="c1"># This ensures compatibility with both old versions (need patching) and new versions (already have methods)</span>
+<span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">scheduler_module</span><span class="o">.</span><span class="n">Scheduler</span><span class="p">,</span> <span class="s1">&#39;release_memory_occupation&#39;</span><span class="p">):</span>
+    <span class="c1"># Old version: need to add the methods via monkey patching</span>
+    <span class="n">scheduler_module</span><span class="o">.</span><span class="n">Scheduler</span><span class="o">.</span><span class="n">release_memory_occupation</span> <span class="o">=</span> <span class="n">release_memory_occupation</span>
+    <span class="n">scheduler_module</span><span class="o">.</span><span class="n">Scheduler</span><span class="o">.</span><span class="n">resume_memory_occupation</span> <span class="o">=</span> <span class="n">resume_memory_occupation</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c1"># New version (v0.5.6.post2+): methods already exist via SchedulerUpdateWeightsMixin</span>
+    <span class="c1"># No patching needed, but we keep our implementation available for reference</span>
+    <span class="k">pass</span>
 </pre></div>
 
               </article>

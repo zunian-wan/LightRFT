@@ -309,6 +309,7 @@
 <span class="sd">- compute_clip_fraction: Calculates the fraction of tensor elements that fall outside specified bounds</span>
 <span class="sd">- RunningMoments: Maintains running mean and standard deviation statistics for streaming data</span>
 <span class="sd">- get_cpgd_advantages_returns: Computes advantages and returns for CPGD algorithm</span>
+<span class="sd">- vllm_ge_0130: Version checking utility for vLLM compatibility</span>
 
 <span class="sd">These utilities are particularly useful in RL algorithms like PPO where clipping statistics and</span>
 <span class="sd">normalization are important for training stability and monitoring.</span>
@@ -318,6 +319,11 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">vllm</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">vllm</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <div class="viewcode-block" id="fire_sampling"><a class="viewcode-back" href="../../../api_doc/trainer/utils.html#lightrft.trainer.utils.fire_sampling">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">fire_sampling</span><span class="p">(</span>
@@ -453,16 +459,13 @@
 <span class="sd">             clipped values in the input tensor.</span>
 <span class="sd">    :rtype: torch.Tensor</span>
 
-<span class="sd">    **Example:**</span>
+<span class="sd">    Example::</span>
 
+<span class="sd">        .. code-block:: python</span>
 
-
-<span class="sd">    .. code-block:: python</span>
-
-
-<span class="sd">        &gt;&gt;&gt; values = torch.tensor([[1.0, 2.0, 3.0], [0.5, 1.5, 2.5]])</span>
-<span class="sd">        &gt;&gt;&gt; clip_fraction = compute_clip_fraction(values, clip_max=2.0, clip_min=1.0)</span>
-<span class="sd">        &gt;&gt;&gt; print(clip_fraction)  # Should show fraction of values outside [1.0, 2.0]</span>
+<span class="sd">            &gt;&gt;&gt; values = torch.tensor([[1.0, 2.0, 3.0], [0.5, 1.5, 2.5]])</span>
+<span class="sd">            &gt;&gt;&gt; clip_fraction = compute_clip_fraction(values, clip_max=2.0, clip_min=1.0)</span>
+<span class="sd">            &gt;&gt;&gt; print(clip_fraction)  # Should show fraction of values outside [1.0, 2.0]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">numel</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">numel</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -494,19 +497,16 @@
 
 <span class="sd">    Adapted from https://github.com/alibaba/ROLL</span>
 
-<span class="sd">    **Example:**</span>
+<span class="sd">    Example::</span>
 
+<span class="sd">        .. code-block:: python</span>
 
-
-<span class="sd">    .. code-block:: python</span>
-
-
-<span class="sd">        &gt;&gt;&gt; moments = RunningMoments()</span>
-<span class="sd">        &gt;&gt;&gt; batch1 = torch.randn(100)</span>
-<span class="sd">        &gt;&gt;&gt; mean1, std1 = moments.update(batch1)</span>
-<span class="sd">        &gt;&gt;&gt; batch2 = torch.randn(100)</span>
-<span class="sd">        &gt;&gt;&gt; mean2, std2 = moments.update(batch2)</span>
-<span class="sd">        &gt;&gt;&gt; print(f&quot;Running mean: {moments.mean}, Running std: {moments.std}&quot;)</span>
+<span class="sd">            &gt;&gt;&gt; moments = RunningMoments()</span>
+<span class="sd">            &gt;&gt;&gt; batch1 = torch.randn(100)</span>
+<span class="sd">            &gt;&gt;&gt; mean1, std1 = moments.update(batch1)</span>
+<span class="sd">            &gt;&gt;&gt; batch2 = torch.randn(100)</span>
+<span class="sd">            &gt;&gt;&gt; mean2, std2 = moments.update(batch2)</span>
+<span class="sd">            &gt;&gt;&gt; print(f&quot;Running mean: {moments.mean}, Running std: {moments.std}&quot;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -536,17 +536,14 @@
 <span class="sd">        :return: A tuple of (mean, std) for the current batch `xs`.</span>
 <span class="sd">        :rtype: Tuple[float, float]</span>
 
-<span class="sd">        **Example:**</span>
+<span class="sd">        Example::</span>
 
+<span class="sd">            .. code-block:: python</span>
 
-
-<span class="sd">        .. code-block:: python</span>
-
-
-<span class="sd">            &gt;&gt;&gt; moments = RunningMoments()</span>
-<span class="sd">            &gt;&gt;&gt; new_data = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])</span>
-<span class="sd">            &gt;&gt;&gt; batch_mean, batch_std = moments.update(new_data)</span>
-<span class="sd">            &gt;&gt;&gt; print(f&quot;Batch mean: {batch_mean}, Batch std: {batch_std}&quot;)</span>
+<span class="sd">                &gt;&gt;&gt; moments = RunningMoments()</span>
+<span class="sd">                &gt;&gt;&gt; new_data = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])</span>
+<span class="sd">                &gt;&gt;&gt; batch_mean, batch_std = moments.update(new_data)</span>
+<span class="sd">                &gt;&gt;&gt; print(f&quot;Batch mean: {batch_mean}, Batch std: {batch_std}&quot;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># 1. Get statistics for the new batch</span>
         <span class="n">xs_count</span> <span class="o">=</span> <span class="n">xs</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
@@ -663,6 +660,28 @@
     <span class="n">returns</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">advantages</span><span class="p">,</span> <span class="n">returns</span></div>
+
+
+<div class="viewcode-block" id="vllm_ge_0130"><a class="viewcode-back" href="../../../api_doc/trainer/utils.html#lightrft.trainer.utils.vllm_ge_0130">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">vllm_ge_0130</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check if vLLM version is greater than or equal to 0.13.0.</span>
+
+<span class="sd">    Starting from vLLM 0.13.0, truncate_prompt_tokens parameter must not exceed</span>
+<span class="sd">    max_model_len, requiring additional validation logic.</span>
+
+<span class="sd">    :return: True if vLLM version &gt;= 0.13.0, False otherwise</span>
+<span class="sd">    :rtype: bool</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">vllm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># If vLLM is not installed, assume newer version for safety</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">version_digits</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">isdigit</span><span class="p">,</span> <span class="n">vllm</span><span class="o">.</span><span class="n">__version__</span><span class="p">))))</span>
+        <span class="k">return</span> <span class="n">version_digits</span> <span class="o">&gt;=</span> <span class="mi">130</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="c1"># If version cannot be determined, assume newer version for safety</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
 </pre></div>
 
               </article>

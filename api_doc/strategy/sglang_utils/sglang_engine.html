@@ -315,6 +315,9 @@
 leveraging PyTorch’s distributed capabilities. It supports tensor parallelism for efficient
 model execution and provides methods for generating text, updating model weights, and
 managing memory resources.</p>
+<p>The module is designed to work with different versions of SGLang:
+- Supports both old and new Engine import paths
+- Compatible with various SGLang API changes across versions</p>
 <p>The module is designed to work with the SGLang runtime (srt) system and supports features
 such as batch processing, custom sampling parameters, and LoRA fine-tuning.</p>
 <section id="rlgenerationengine">
@@ -417,19 +420,36 @@ any background threads. It ensures a clean termination of the engine.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.sleep">
-<span class="sig-name descname"><span class="pre">sleep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/lightrft/strategy/sglang_utils/sglang_engine.html#RLGenerationEngine.sleep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.sleep" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">sleep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">release_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/lightrft/strategy/sglang_utils/sglang_engine.html#RLGenerationEngine.sleep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.sleep" title="Permalink to this definition">¶</a></dt>
 <dd><p>Release memory resources temporarily to free up GPU memory.</p>
-<p>This method can be used to temporarily reduce memory usage when the engine
-is not actively generating text. It’s particularly useful in scenarios where
-multiple models or processes need to share GPU memory resources efficiently.</p>
+<p>This method releases KV cache and CUDA graph memory to free up GPU resources
+during idle periods. By default, model weights are kept in memory to avoid
+the overhead and risk of saving/restoring them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>release_weights</strong> (<em>bool</em>) – Whether to also release weights memory. Default is False.
+Set to True only if you need maximum memory savings and
+understand the risks (SGLang may not properly restore weights).</p>
+</dd>
+</dl>
 <dl class="simple">
-<dt>Note:</dt><dd><p>After calling sleep(), you must call wake_up() before using the engine again.</p>
+<dt>Note:</dt><dd><ul class="simple">
+<li><p>By default, only KV cache and CUDA graph are released (recommended)</p></li>
+<li><p>Weights are kept in memory unless explicitly requested</p></li>
+<li><p>After calling sleep(), you must call wake_up() before using the engine again</p></li>
+<li><p>⚠️ WARNING: Releasing weights may cause generation issues due to SGLang limitations</p></li>
+</ul>
 </dd>
 </dl>
 <p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">sleep</span><span class="p">()</span>  <span class="c1"># Free up memory during idle periods</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... other operations that need GPU memory ...</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">wake_up</span><span class="p">()</span>  <span class="c1"># Resume before next generation</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Standard usage: keep weights in memory (recommended)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">sleep</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... other operations ...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">wake_up</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Maximum memory savings: also release weights (use with caution)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">release_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">wake_up</span><span class="p">(</span><span class="n">release_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -466,16 +486,34 @@ to ensure all ranks participate in the weight update process.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.wake_up">
-<span class="sig-name descname"><span class="pre">wake_up</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/lightrft/strategy/sglang_utils/sglang_engine.html#RLGenerationEngine.wake_up"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.wake_up" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">wake_up</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">release_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/lightrft/strategy/sglang_utils/sglang_engine.html#RLGenerationEngine.wake_up"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lightrft.strategy.sglang_utils.sglang_engine.RLGenerationEngine.wake_up" title="Permalink to this definition">¶</a></dt>
 <dd><p>Resume memory occupation after a call to sleep().</p>
 <p>This method should be called before using the engine for generation
 after a previous call to sleep(). It restores the engine to its fully
 operational state with all necessary memory allocations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>release_weights</strong> (<em>bool</em>) – Must match the value used in sleep(). Default is False.</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Important:</dt><dd><ul class="simple">
+<li><p>The release_weights parameter must match what was used in sleep()</p></li>
+<li><p>If you called sleep(release_weights=False), call wake_up(release_weights=False)</p></li>
+<li><p>If you called sleep(release_weights=True), call wake_up(release_weights=True)</p></li>
+</ul>
+</dd>
+</dl>
 <p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">sleep</span><span class="p">()</span>    <span class="c1"># Free memory</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Standard usage (recommended)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">sleep</span><span class="p">()</span>              <span class="c1"># Only KV cache &amp; CUDA graph released</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># ... do other work ...</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">wake_up</span><span class="p">()</span>  <span class="c1"># Prepare engine for generation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">wake_up</span><span class="p">()</span>            <span class="c1"># Only KV cache &amp; CUDA graph restored</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Hello world&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># If weights were released (use with caution)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">release_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engine</span><span class="o">.</span><span class="n">wake_up</span><span class="p">(</span><span class="n">release_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Must match!</span>
 </pre></div>
 </div>
 </dd></dl>
