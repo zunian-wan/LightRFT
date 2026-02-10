@@ -319,6 +319,7 @@
 <p>The models package follows a modular design approach that separates concerns and promotes code reusability:</p>
 <ul class="simple">
 <li><p><strong>Actor Base Classes</strong>: Provide foundational functionality for different types of actors</p></li>
+<li><p><strong>Reward Model Base Classes</strong>: Provide foundational functionality for different types of reward models</p></li>
 <li><p><strong>Utility Functions</strong>: Common operations and helper functions shared across models</p></li>
 <li><p><strong>Model Patches</strong>: Specialized adaptations for specific model architectures</p></li>
 </ul>
@@ -377,6 +378,20 @@
 <li><p>Separate class to handle the complexity of multi-modal inputs</p></li>
 <li><p>Model-specific adaptations for different VL architectures</p></li>
 <li><p>Flexible pixel value and grid dimension handling</p></li>
+</ul>
+</section>
+<section id="reward-models">
+<h4>3. Reward Models<a class="headerlink" href="#reward-models" title="Permalink to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Scalar or generative reward models for evaluating response quality</p>
+<p><strong>Key Classes</strong>:</p>
+<ul class="simple">
+<li><p><strong>ScalarRewardModelVL</strong>: Scalar Reward Model (SRM) mapping multimodal inputs to scalar scores. Supports multiple reward heads and preference loss functions like Bradley-Terry.</p></li>
+<li><p><strong>GenerativeRewardModelVL</strong>: Generative Reward Model (GRM) leveraging generation capabilities to output text-based evaluations with reasoning (CoT).</p></li>
+</ul>
+<p><strong>Design Decisions</strong>:</p>
+<ul class="simple">
+<li><p>Shared infrastructure with Actors.</p></li>
+<li><p>Support for both scalar-based (efficient, direct for PPO) and text-based reasoning feedback mechanisms.</p></li>
 </ul>
 </section>
 </section>
@@ -618,6 +633,7 @@
 <li><a class="reference internal" href="#core-classes">Core Classes</a><ul>
 <li><a class="reference internal" href="#actortext">1. ActorText</a></li>
 <li><a class="reference internal" href="#actorvl-vision-language">2. ActorVL (Vision-Language)</a></li>
+<li><a class="reference internal" href="#reward-models">3. Reward Models</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#utility-functions">Utility Functions</a><ul>
@@ -684,6 +700,7 @@
   <script src="../_static/doctools.js"></script>
   <script src="../_static/sphinx_highlight.js"></script>
   <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+  <script src="../_static/js/language_switch.js"></script>
   
 
   
