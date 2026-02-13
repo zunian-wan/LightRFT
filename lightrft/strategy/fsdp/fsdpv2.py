@@ -12,7 +12,7 @@ import os
 import shutil
 from collections import defaultdict
 from contextlib import contextmanager
-from typing import List, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 from torch import distributed as dist
@@ -452,7 +452,7 @@ class FSDPV2Strategy(StrategyBase):
         else:
             return model
 
-    def save_model(self, model, tokenizer, output_dir, **kwargs) -> None:
+    def save_model(self, model: nn.Module, tokenizer: Any, output_dir: str, **kwargs) -> None:
         """
         Save the model, its configuration, and tokenizer in Hugging Face format.
         In LoRA mode, this saves the adapter. In full mode, this saves the full model.

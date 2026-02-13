@@ -3,11 +3,29 @@
 # LightRFT Multi-Modal LoRA Training Script for the Geo3K Dataset.
 # This script is designed for fine-tuning a large multi-modal model using the GRPO algorithm with LoRA.
 #
-# Key Feature:
-# This training process utilizes a PURE RULE-BASED REWARD mechanism, eliminating the need for a separate reward model.
-# The reward is calculated based on two criteria:
-# - Format Correctness (10%): Adherence to the required <think>...</think> and \boxed{} format.
-# - Answer Accuracy (90%): Correctness of the final answer.
+################################################################################
+#                         LoRA Pipeline Introduction                           #
+#                                                                              #
+# This pipeline is a LoRA-based (Low-Rank Adaptation) modification of the      #
+# standard GRPO training process. It enables parameter-efficient fine-tuning   #
+# of large-scale models (e.g., Qwen2.5-VL-7B) by updating only a small         #
+# percentage of weights.                                                       #
+#                                                                              #
+# Main modifications for LoRA:                                                 #
+# - Parameter Efficiency: Significantly reduces VRAM usage for 7B+ models.     #
+# - Targeted Adaptation: Adapts all linear layers to maintain reasoning power.  #
+# - Memory Optimization: Fully compatible with FSDP and ZeRO strategies.       #
+################################################################################
+#
+# Key Features:
+# 1. Parameter-Efficient Fine-Tuning (LoRA):
+#    - Enables training large 7B+ multi-modal models on consumer-grade or limited GPU setups.
+#    - Configured with a high LoRA rank (128) and alpha (256) to capture complex reasoning patterns.
+# 2. PURE RULE-BASED REWARD:
+#    - Eliminates the need for a separate reward model, reducing computational overhead.
+#    - Reward is calculated based on:
+#      - Format Correctness (10%): Adherence to the required <think>...</think> and \boxed{} format.
+#      - Answer Accuracy (90%): Correctness of the final answer.
 #
 
 ################################################################################
@@ -26,7 +44,7 @@ PATH_TO_YOUR_GEO3K_DATASET="/path/to/your/preprocessed/geo3k_dataset"
 
 # --- Experiment and Logging ---
 # A descriptive name for your experiment. Used for organizing logs and checkpoints.
-EXPERIMENT_NAME="lightrft-geo3k-grpo-training"
+EXPERIMENT_NAME="lightrft-geo3k-grpo-lora-training"
 
 # Your Weights & Biases API key.
 # Set to an empty string "" if you are not using W&B.
@@ -99,7 +117,7 @@ ENGINE_TP=2  # Tensor parallelism size for the inference engine. Adjust based on
 
 # --- Generate dynamic names and paths ---
 current_time=$(date +"%Y%m%d_%H%M%S")
-SAVE_MODEL_NAME="${EXPERIMENT_NAME}-ep${EPISODE}-kl${KL}-lr${LR}-${current_time}"
+SAVE_MODEL_NAME="${EXPERIMENT_NAME}-ep${EPISODE}-kl${KL}-lr${LR}-lora_rank-${LORA_RANK}-alpha_${LORA_ALPHA}-dropout_${LORA_DROPOUT}-${current_time}"
 WANDB_RUN_NAME="${EXPERIMENT_NAME}-${current_time}"
 
 # --- Create directories for logs and checkpoints ---
