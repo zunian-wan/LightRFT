@@ -343,51 +343,47 @@
 <h2>架构组件<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h2>
 <section id="id7">
 <h3>核心类<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h3>
-<section id="actortext">
-<h4>1. ActorText<a class="headerlink" href="#actortext" title="Permalink to this heading">¶</a></h4>
+<section id="actormodality">
+<h4>1. ActorModality (模态定义)<a class="headerlink" href="#actormodality" title="Permalink to this heading">¶</a></h4>
+<p><strong>用途</strong>：位于 <code class="docutils literal notranslate"><span class="pre">models/actor_modality.py</span></code>，定义 Actor 模型的模态类型并管理不同模态支持的参数。</p>
+<p><strong>核心特性</strong>：</p>
+<ul class="simple">
+<li><p><strong>分类管理</strong>：通过 <code class="docutils literal notranslate"><span class="pre">ActorModality</span></code> 枚举（如 <code class="docutils literal notranslate"><span class="pre">LANGUAGE_ONLY</span></code>, <code class="docutils literal notranslate"><span class="pre">VISION_LANGUAGE</span></code>, <code class="docutils literal notranslate"><span class="pre">AUDIO_LANGUAGE</span></code>, <code class="docutils literal notranslate"><span class="pre">OMNI</span></code>）定义模型类型。</p></li>
+<li><p><strong>参数映射</strong>：<code class="docutils literal notranslate"><span class="pre">MODALITY_PARAMETERS</span></code> 字典定义了各模态支持的特殊参数（如 <code class="docutils literal notranslate"><span class="pre">pixel_values</span></code> 对应视觉模型，<code class="docutils literal notranslate"><span class="pre">audio_values</span></code> 对应音频模型）。</p></li>
+<li><p><strong>解耦设计</strong>：Trainer 通过 <code class="docutils literal notranslate"><span class="pre">get_supported_parameters</span></code> 接口动态获取模型所需的参数，实现了训练逻辑与具体模型输入格式的解耦。</p></li>
+</ul>
+</section>
+<section id="actorlanguage">
+<h4>2. ActorLanguage<a class="headerlink" href="#actorlanguage" title="Permalink to this heading">¶</a></h4>
 <p><strong>用途</strong>：用于纯文本语言模型的通用 Actor。</p>
 <p><strong>核心特性</strong>：</p>
 <ul class="simple">
-<li><p>支持各种因果语言模型 (Causal Language Model) 架构。</p></li>
-<li><p>可配置的 LoRA 适配，支持自动检测目标模块。</p></li>
-<li><p>集成 Flash Attention 2.0 以提升性能。</p></li>
-</ul>
-<p><strong>设计决策</strong>：</p>
-<ul class="simple">
-<li><p>通用实现，可与任何 HuggingFace 因果语言模型配合使用。</p></li>
-<li><p>自动检测线性模块以进行 LoRA 注入。</p></li>
-<li><p>灵活的生成参数，并为 RL 训练提供后处理。</p></li>
+<li><p><strong>纯文本支持</strong>：模态被显式声明为 <code class="docutils literal notranslate"><span class="pre">ActorModality.LANGUAGE_ONLY</span></code>。</p></li>
+<li><p><strong>广泛兼容</strong>：支持 HuggingFace 上的大多数因果语言模型 (Causal Language Model) 架构。</p></li>
+<li><p><strong>性能优化</strong>：自动检测线性模块进行 LoRA 注入，集成 Flash Attention 2.0。</p></li>
 </ul>
 </section>
 <section id="actorvl-vision-language">
-<h4>2. ActorVL (Vision-Language)<a class="headerlink" href="#actorvl-vision-language" title="Permalink to this heading">¶</a></h4>
-<p><strong>用途</strong>：用于视觉语言模型的专门 Actor。</p>
+<h4>3. ActorVL (Vision-Language)<a class="headerlink" href="#actorvl-vision-language" title="Permalink to this heading">¶</a></h4>
+<p><strong>用途</strong>：用于视觉语言模型的专门 Actor，处理图像、视频等多模态输入。</p>
 <p><strong>核心特性</strong>：</p>
 <ul class="simple">
-<li><p>多模态输入处理（文本 + 视觉）。</p></li>
-<li><p>支持各种视觉语言架构（如 LLaVA, Qwen2-VL, Qwen2.5-VL, Keye-VL, Qwen3-VL 等）。</p></li>
-<li><p>针对不同长宽比的图像网格 (Image Grid) 处理。</p></li>
-<li><p>针对不同模型类型的专门处理。</p></li>
-</ul>
-<p><strong>设计决策</strong>：</p>
-<ul class="simple">
-<li><p>独立的类，用以处理多模态输入的复杂性。</p></li>
-<li><p>针对不同视觉语言架构的模型特定适配。</p></li>
-<li><p>灵活的像素值和网格维度处理。</p></li>
+<li><p><strong>多模态能力</strong>：模态声明为 <code class="docutils literal notranslate"><span class="pre">ActorModality.VISION_LANGUAGE</span></code>。</p></li>
+<li><p><strong>架构适配</strong>：支持 Qwen2-VL 和 Qwen2.5-VL</p></li>
+<li><p><strong>输入处理</strong>：内部处理图像网格 (Image Grid) 和变长视觉序列。</p></li>
 </ul>
 </section>
+<section id="actoral-audio-language">
+<h4>4. ActorAL (Audio-Language)<a class="headerlink" href="#actoral-audio-language" title="Permalink to this heading">¶</a></h4>
+<p><strong>用途</strong>：用于音频语言模型（如 Qwen2-Audio）的专用 Actor，模态为 <code class="docutils literal notranslate"><span class="pre">ActorModality.AUDIO_LANGUAGE</span></code>，支持音频采集和处理。</p>
+</section>
 <section id="reward-models">
-<h4>3. 奖励模型 (Reward Models)<a class="headerlink" href="#reward-models" title="Permalink to this heading">¶</a></h4>
-<p><strong>用途</strong>：实现评估 Response 质量的标量或生成式奖励模型。</p>
+<h4>5. 奖励模型 (Reward Models)<a class="headerlink" href="#reward-models" title="Permalink to this heading">¶</a></h4>
+<p><strong>用途</strong>：评估 Response 质量的标量 (SRM) 或生成式 (GRM) 奖励模型。</p>
 <p><strong>核心类</strong>：</p>
 <ul class="simple">
-<li><p><strong>ScalarRewardModelVL</strong>：标量奖励模型 (SRM)，将多模态输入映射为标量分数。支持多维度奖励头和 Bradley-Terry 等各种偏好损失函数。</p></li>
-<li><p><strong>GenerativeRewardModelVL</strong>：生成式奖励模型 (GRM)，利用文本生成能力输出带推理过程 (CoT) 的文本评估结果。</p></li>
-</ul>
-<p><strong>设计决策</strong>：</p>
-<ul class="simple">
-<li><p>与 Actor 共享基础架构。</p></li>
-<li><p>支持基于标量（高效、直接用于 PPO）和基于自回归文本生成（可解释性强）的两种反馈机制。</p></li>
+<li><p><strong>ScalarRewardModelVL/AL</strong>：标量奖励模型 (SRM)，将多模态输入映射为标量分数。支持 Bradley-Terry 偏好损失。</p></li>
+<li><p><strong>GenerativeRewardModelVL</strong>：生成式奖励模型 (GRM)，输出带推理过程 (CoT) 的文本评估。</p></li>
 </ul>
 </section>
 </section>
@@ -615,9 +611,11 @@
 </li>
 <li><a class="reference internal" href="#id6">架构组件</a><ul>
 <li><a class="reference internal" href="#id7">核心类</a><ul>
-<li><a class="reference internal" href="#actortext">1. ActorText</a></li>
-<li><a class="reference internal" href="#actorvl-vision-language">2. ActorVL (Vision-Language)</a></li>
-<li><a class="reference internal" href="#reward-models">3. 奖励模型 (Reward Models)</a></li>
+<li><a class="reference internal" href="#actormodality">1. ActorModality (模态定义)</a></li>
+<li><a class="reference internal" href="#actorlanguage">2. ActorLanguage</a></li>
+<li><a class="reference internal" href="#actorvl-vision-language">3. ActorVL (Vision-Language)</a></li>
+<li><a class="reference internal" href="#actoral-audio-language">4. ActorAL (Audio-Language)</a></li>
+<li><a class="reference internal" href="#reward-models">5. 奖励模型 (Reward Models)</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id8">工具函数</a><ul>

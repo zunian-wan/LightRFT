@@ -309,7 +309,7 @@
 <h2>常规问题<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
 <section id="q-lightrft">
 <h3>Q: 什么是 LightRFT？<a class="headerlink" href="#q-lightrft" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: LightRFT (Light Reinforcement Fine-Tuning) 是一个先进的强化学习框架，专为大语言模型 (LLM) 和视觉语言模型 (VLM) 的微调而设计。它通过支持多种算法和分布式训练策略，提供高效且可扩展的 RLHF 训练能力。</p>
+<p><strong>A</strong>: LightRFT (Light Reinforcement Fine-Tuning) 是一个先进的强化学习框架，专为大语言模型 (LLM) 和视觉语言模型 (VLM) 的强化微调而设计，支持多种模型、算法、分布式训练策略和推理引擎，提供高效且可扩展的 RLHF 和 RLVR 训练能力。</p>
 </section>
 <section id="q-lightrft-openrlhf">
 <h3>Q: LightRFT 与 OpenRLHF 的主要区别是什么？<a class="headerlink" href="#q-lightrft-openrlhf" title="Permalink to this heading">¶</a></h3>
@@ -318,17 +318,17 @@
 <li><p>增强了多模态 (VLM) 支持</p></li>
 <li><p>更多的强化学习算法（GRPO, GSPO, GMPO, REINFORCE++, CPGD 等）</p></li>
 <li><p>更好的显存优化（推理引擎休眠、优化器卸载）</p></li>
-<li><p>改进的推理引擎（支持 FP8 的 vLLM, SGLang）</p></li>
+<li><p>改进的推理引擎（vLLM, SGLang）</p></li>
 <li><p>为了提高效率，支持奖励模型 (RM) 的同机部署 (Co-location)</p></li>
-<li><p>更灵活的分布式训练策略</p></li>
+<li><p>更灵活的分布式训练策略，支持 FSDP 和 DeepSpeed ZeRO</p></li>
 </ul>
 </section>
 <section id="q">
 <h3>Q: 支持哪些模型？<a class="headerlink" href="#q" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: LightRFT 支持：</p>
 <ul class="simple">
-<li><p><strong>LLM</strong>: Qwen, Qwen2.5, LLaMA, Mistral 以及大多数 HuggingFace 模型</p></li>
-<li><p><strong>VLM</strong>: Qwen-VL, Qwen2-VL, LLaVA</p></li>
+<li><p><strong>LLM</strong>: Qwen, Qwen2.5 以及大多数 HuggingFace 模型</p></li>
+<li><p><strong>VLM</strong>: Qwen-VL, Qwen2-VL</p></li>
 <li><p><strong>自定义模型</strong>: 通过 monkey patching 可以轻松添加新模型</p></li>
 </ul>
 </section>
@@ -336,10 +336,10 @@
 <h3>Q: 需要什么样的硬件？<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 最低要求：</p>
 <ul class="simple">
-<li><p><strong>GPU</strong>: 支持 CUDA 11.8+ 的 NVIDIA GPU</p></li>
+<li><p><strong>GPU</strong>: 支持 CUDA 12.8+ 的 NVIDIA GPU</p></li>
 <li><p><strong>显存</strong>: 建议每张 GPU 40GB+ VRAM（通过优化可以实现 24GB 运行）</p></li>
-<li><p><strong>PyTorch</strong>: 2.5.1+</p></li>
-<li><p><strong>Python</strong>: 3.8+</p></li>
+<li><p><strong>PyTorch</strong>: 2.9.1+</p></li>
+<li><p><strong>Python</strong>: 3.10+</p></li>
 </ul>
 <p>生产环境建议：8× A100/H100 80GB。</p>
 </section>
@@ -355,36 +355,29 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 </pre></div>
 </div>
 </section>
-<section id="q-vllm">
-<h3>Q: 我需要单独安装 vLLM 吗？<a class="headerlink" href="#q-vllm" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 不需要，vLLM 已包含在依赖列表中。不过，为了使用最新特性，您可以从源码进行安装。</p>
-</section>
 </section>
 <section id="id5">
 <h2>训练问题<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h2>
 <section id="q-fsdp-deepspeed">
 <h3>Q: FSDP 和 DeepSpeed 有什么区别？<a class="headerlink" href="#q-fsdp-deepspeed" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>:</p>
+<p><strong>A</strong>: 虽然两者都实现了完全分片数据并行 (ZeRO-3/FSDP)，但设计哲学和侧重点不同：</p>
 <ul class="simple">
-<li><p><strong>FSDP</strong>: PyTorch 原生支持，集成度更高，支持 CPU 卸载 (Offload)。</p></li>
-<li><p><strong>DeepSpeed</strong>: 更成熟，ZeRO-3 优化效果好，通常速度更快。</p></li>
+<li><p><strong>FSDP (PyTorch 原生)</strong>:</p>
+<ul>
+<li><p><strong>深度集成</strong>: 原生支持 Autograd 和 <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code>，与 PyTorch 生态无缝衔接。</p></li>
+<li><p><strong>高灵活度</strong>: 通过 <code class="docutils literal notranslate"><span class="pre">auto_wrap_policy</span></code> 可精细控制模块分片粒度，适合结构复杂的自定义模型。</p></li>
+<li><p><strong>易于组合</strong>: 更容易与张量并行 (TP) 等原生分布式技术组合。</p></li>
 </ul>
-<p>追求极致显存效率时使用 FSDP，追求速度时使用 DeepSpeed。</p>
-</section>
-<section id="q-batch-size">
-<h3>Q: 如何选择 Batch Size？<a class="headerlink" href="#q-batch-size" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 请遵循以下约束：</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>train_batch_size &gt;= rollout_batch_size × n_samples_per_prompt
-</pre></div>
-</div>
-<p>以 8 张 GPU 为例：</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">train_batch_size=256</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">rollout_batch_size=64</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">n_samples_per_prompt=8</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">micro_train_batch_size=1</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">micro_rollout_batch_size=2</span></code></p></li>
+</li>
+<li><p><strong>DeepSpeed (微软开发)</strong>:</p>
+<ul>
+<li><p><strong>功能全家桶</strong>: 一站式提供 CPU/NVMe 卸载 (ZeRO-Infinity)、高性能优化器等工具。</p></li>
+<li><p><strong>声明式配置</strong>: 通过 JSON 文件管理设置，将复杂性抽象化，上手门槛较低。</p></li>
+<li><p><strong>极致性能</strong>: 包含大量针对特定场景优化的自定义 CUDA Kernel。</p></li>
 </ul>
+</li>
+</ul>
+<p><strong>选择建议</strong>: 追求原生体验、复杂定制或使用 <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> 时选 FSDP；需要极致易用性或极其巨大的模型（需 NVMe 卸载）时选 DeepSpeed。</p>
 </section>
 <section id="id6">
 <h3>Q: 我该使用哪种算法？<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
@@ -416,16 +409,6 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><p>远程奖励模型服务器</p></li>
 <li><p>加权奖励组合</p></li>
 </ul>
-</section>
-<section id="q-vlm">
-<h3>Q: 如何开启多模态 (VLM) 训练？<a class="headerlink" href="#q-vlm" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 使用 VLM 训练脚本：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>train_vl.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--pretrain<span class="w"> </span>/path/to/Qwen2-VL<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--mixed_mm_data<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--packing_samples
-</pre></div>
-</div>
 </section>
 </section>
 <section id="id8">
@@ -464,25 +447,9 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><p><strong>70B 模型</strong>: 约 50 样本/分钟</p></li>
 </ul>
 </section>
+</section>
 <section id="id12">
-<h3>Q: 如何使用多节点训练？<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 使用 SLURM 或 Ray：</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># SLURM 示例</span>
-srun<span class="w"> </span>-N2<span class="w"> </span>--gres<span class="o">=</span>gpu:8<span class="w"> </span>--ntasks-per-node<span class="o">=</span><span class="m">8</span><span class="w"> </span>bash<span class="w"> </span>train.sh
-
-<span class="c1"># 或使用 torchrun</span>
-torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--nnodes<span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--node_rank<span class="o">=</span><span class="nv">$NODE_RANK</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--master_addr<span class="o">=</span><span class="nv">$MASTER_ADDR</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--master_port<span class="o">=</span><span class="nv">$MASTER_PORT</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>train.py
-</pre></div>
-</div>
-</section>
-</section>
-<section id="id13">
-<h2>算法问题<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h2>
+<h2>算法问题<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h2>
 <section id="q-grpo-ppo">
 <h3>Q: GRPO 和 PPO 有什么区别？<a class="headerlink" href="#q-grpo-ppo" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>:</p>
@@ -502,18 +469,9 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 <li><p>防止灾难性遗忘</p></li>
 </ul>
 </section>
-<section id="q-clip-higher">
-<h3>Q: 什么是 Clip Higher？<a class="headerlink" href="#q-clip-higher" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 一种改进的裁剪方案，针对正负优势分别设置不同的上下界。适用于：</p>
-<ul class="simple">
-<li><p>有噪声的奖励信号</p></li>
-<li><p>较大的分布偏移</p></li>
-<li><p>训练不稳定的情况</p></li>
-</ul>
 </section>
-</section>
-<section id="id14">
-<h2>调试问题<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h2>
+<section id="id13">
+<h2>调试问题<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h2>
 <section id="q-oom">
 <h3>Q: 训练因显存溢出 (OOM) 崩溃<a class="headerlink" href="#q-oom" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 请参阅 <a class="reference internal" href="troubleshooting_zh.html#显存问题"><span class="std std-ref">故障排除指南</span></a></p>
@@ -525,8 +483,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </pre></div>
 </div>
 </section>
-<section id="id15">
-<h3>Q: 模型没有提升 / 奖励没有增加<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h3>
+<section id="id14">
+<h3>Q: 模型没有提升 / 奖励没有增加<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 请检查：</p>
 <ol class="arabic simple">
 <li><p>学习率是否过高或过低</p></li>
@@ -547,8 +505,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </pre></div>
 </div>
 </section>
-<section id="id16">
-<h3>Q: vLLM 引擎初始化失败<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h3>
+<section id="q-vllm">
+<h3>Q: vLLM 引擎初始化失败<a class="headerlink" href="#q-vllm" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>:</p>
 <ol class="arabic simple">
 <li><p>检查 GPU 显存：尝试 <code class="docutils literal notranslate"><span class="pre">--engine_mem_util</span> <span class="pre">0.5</span></code></p></li>
@@ -558,8 +516,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </ol>
 </section>
 </section>
-<section id="id17">
-<h2>评估问题<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h2>
+<section id="id15">
+<h2>评估问题<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h2>
 <section id="q-benchmark">
 <h3>Q: 如何在 Benchmark 上进行评估？<a class="headerlink" href="#q-benchmark" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 对于数学评测，请使用 examples 目录下的评测脚本：</p>
@@ -589,10 +547,10 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </div>
 </section>
 </section>
-<section id="id18">
-<h2>进阶问题<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h2>
-<section id="id19">
-<h3>Q: 我能实现自定义算法吗？<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h3>
+<section id="id16">
+<h2>进阶问题<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h2>
+<section id="id17">
+<h3>Q: 我能实现自定义算法吗？<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 可以！扩展 Trainer 类即可：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lightrft.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">SPMDPPOTrainer</span>
 
@@ -603,8 +561,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </pre></div>
 </div>
 </section>
-<section id="id20">
-<h3>Q: 如何添加新的模型架构？<a class="headerlink" href="#id20" title="Permalink to this heading">¶</a></h3>
+<section id="id18">
+<h3>Q: 如何添加新的模型架构？<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 在 <code class="docutils literal notranslate"><span class="pre">lightrft/models/monkey_patch/</span></code> 中创建 monkey patch：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># your_model.py</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">patch_your_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
@@ -616,8 +574,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </pre></div>
 </div>
 </section>
-<section id="id21">
-<h3>Q: 我可以使用自定义奖励函数吗？<a class="headerlink" href="#id21" title="Permalink to this heading">¶</a></h3>
+<section id="id19">
+<h3>Q: 我可以使用自定义奖励函数吗？<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 可以，传入一个可调用对象：</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">custom_reward_fn</span><span class="p">(</span><span class="n">responses</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
     <span class="c1"># 您的奖励计算逻辑</span>
@@ -631,7 +589,7 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </div>
 </section>
 <section id="q-checkpoint">
-<h3>Q: 训练过程中如何保存端点 (Checkpoint)？<a class="headerlink" href="#q-checkpoint" title="Permalink to this heading">¶</a></h3>
+<h3>Q: 训练过程中如何保存 Checkpoint ？<a class="headerlink" href="#q-checkpoint" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 检查点保存是自动的：</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--save_path<span class="w"> </span>./checkpoints<span class="w"> </span><span class="se">\</span>
 --save_interval<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
@@ -645,10 +603,10 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </div>
 </section>
 </section>
-<section id="id22">
-<h2>贡献问题<a class="headerlink" href="#id22" title="Permalink to this heading">¶</a></h2>
-<section id="id23">
-<h3>Q: 我如何为 LightRFT 做贡献？<a class="headerlink" href="#id23" title="Permalink to this heading">¶</a></h3>
+<section id="id20">
+<h2>贡献问题<a class="headerlink" href="#id20" title="Permalink to this heading">¶</a></h2>
+<section id="id21">
+<h3>Q: 我如何为 LightRFT 做贡献？<a class="headerlink" href="#id21" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>:</p>
 <ol class="arabic simple">
 <li><p>Fork 仓库</p></li>
@@ -669,8 +627,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 <li><p>预期行为与实际行为的对比</p></li>
 </ul>
 </section>
-<section id="id24">
-<h3>Q: 哪里可以获得帮助？<a class="headerlink" href="#id24" title="Permalink to this heading">¶</a></h3>
+<section id="id22">
+<h3>Q: 哪里可以获得帮助？<a class="headerlink" href="#id22" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>:</p>
 <ul class="simple">
 <li><p>Bug 反馈：GitHub Issues</p></li>
@@ -680,8 +638,8 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </ul>
 </section>
 </section>
-<section id="id25">
-<h2>附加资源<a class="headerlink" href="#id25" title="Permalink to this heading">¶</a></h2>
+<section id="id23">
+<h2>附加资源<a class="headerlink" href="#id23" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../installation/index_zh.html"><span class="std std-doc">安装指南</span></a></p></li>
 <li><p><a class="reference internal" href="../quick_start/index_zh.html"><span class="std std-doc">快速入门</span></a></p></li>
@@ -734,59 +692,54 @@ torchrun<span class="w"> </span>--nproc_per_node<span class="o">=</span><span cl
 </li>
 <li><a class="reference internal" href="#id3">安装问题</a><ul>
 <li><a class="reference internal" href="#id4">Q: 如何安装 LightRFT？</a></li>
-<li><a class="reference internal" href="#q-vllm">Q: 我需要单独安装 vLLM 吗？</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id5">训练问题</a><ul>
 <li><a class="reference internal" href="#q-fsdp-deepspeed">Q: FSDP 和 DeepSpeed 有什么区别？</a></li>
-<li><a class="reference internal" href="#q-batch-size">Q: 如何选择 Batch Size？</a></li>
 <li><a class="reference internal" href="#id6">Q: 我该使用哪种算法？</a></li>
 <li><a class="reference internal" href="#q-prompt-samples-per-prompt">Q: 每个 Prompt 应该设置多少个采样样本 (Samples per prompt)？</a></li>
 <li><a class="reference internal" href="#id7">Q: 我可以使用多个奖励模型吗？</a></li>
-<li><a class="reference internal" href="#q-vlm">Q: 如何开启多模态 (VLM) 训练？</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id8">性能问题</a><ul>
 <li><a class="reference internal" href="#id9">Q: 如何减少显存占用？</a></li>
 <li><a class="reference internal" href="#id10">Q: 如何加速训练？</a></li>
 <li><a class="reference internal" href="#id11">Q: 典型的训练速度是多少？</a></li>
-<li><a class="reference internal" href="#id12">Q: 如何使用多节点训练？</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id13">算法问题</a><ul>
+<li><a class="reference internal" href="#id12">算法问题</a><ul>
 <li><a class="reference internal" href="#q-grpo-ppo">Q: GRPO 和 PPO 有什么区别？</a></li>
 <li><a class="reference internal" href="#q-cpgd">Q: 什么时候应该使用 CPGD？</a></li>
-<li><a class="reference internal" href="#q-clip-higher">Q: 什么是 Clip Higher？</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id14">调试问题</a><ul>
+<li><a class="reference internal" href="#id13">调试问题</a><ul>
 <li><a class="reference internal" href="#q-oom">Q: 训练因显存溢出 (OOM) 崩溃</a></li>
 <li><a class="reference internal" href="#q-num-rollouts-per-episodes-0">Q: 报错 <code class="docutils literal notranslate"><span class="pre">num_rollouts_per_episodes</span> <span class="pre">=</span> <span class="pre">0</span></code></a></li>
-<li><a class="reference internal" href="#id15">Q: 模型没有提升 / 奖励没有增加</a></li>
+<li><a class="reference internal" href="#id14">Q: 模型没有提升 / 奖励没有增加</a></li>
 <li><a class="reference internal" href="#q-nccl">Q: NCCL 超时或卡住</a></li>
-<li><a class="reference internal" href="#id16">Q: vLLM 引擎初始化失败</a></li>
+<li><a class="reference internal" href="#q-vllm">Q: vLLM 引擎初始化失败</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id17">评估问题</a><ul>
+<li><a class="reference internal" href="#id15">评估问题</a><ul>
 <li><a class="reference internal" href="#q-benchmark">Q: 如何在 Benchmark 上进行评估？</a></li>
 <li><a class="reference internal" href="#q-trajectories">Q: 我可以保存生成轨迹 (Trajectories) 吗？</a></li>
 <li><a class="reference internal" href="#q-w-b">Q: 如何集成 W&amp;B？</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id18">进阶问题</a><ul>
-<li><a class="reference internal" href="#id19">Q: 我能实现自定义算法吗？</a></li>
-<li><a class="reference internal" href="#id20">Q: 如何添加新的模型架构？</a></li>
-<li><a class="reference internal" href="#id21">Q: 我可以使用自定义奖励函数吗？</a></li>
-<li><a class="reference internal" href="#q-checkpoint">Q: 训练过程中如何保存端点 (Checkpoint)？</a></li>
+<li><a class="reference internal" href="#id16">进阶问题</a><ul>
+<li><a class="reference internal" href="#id17">Q: 我能实现自定义算法吗？</a></li>
+<li><a class="reference internal" href="#id18">Q: 如何添加新的模型架构？</a></li>
+<li><a class="reference internal" href="#id19">Q: 我可以使用自定义奖励函数吗？</a></li>
+<li><a class="reference internal" href="#q-checkpoint">Q: 训练过程中如何保存 Checkpoint ？</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id22">贡献问题</a><ul>
-<li><a class="reference internal" href="#id23">Q: 我如何为 LightRFT 做贡献？</a></li>
+<li><a class="reference internal" href="#id20">贡献问题</a><ul>
+<li><a class="reference internal" href="#id21">Q: 我如何为 LightRFT 做贡献？</a></li>
 <li><a class="reference internal" href="#q-bug">Q: 如何报告 Bug？</a></li>
-<li><a class="reference internal" href="#id24">Q: 哪里可以获得帮助？</a></li>
+<li><a class="reference internal" href="#id22">Q: 哪里可以获得帮助？</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id25">附加资源</a></li>
+<li><a class="reference internal" href="#id23">附加资源</a></li>
 </ul>
 </li>
 </ul>

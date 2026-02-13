@@ -347,51 +347,47 @@
 <h2>Architecture Components<a class="headerlink" href="#architecture-components" title="Permalink to this heading">¶</a></h2>
 <section id="core-classes">
 <h3>Core Classes<a class="headerlink" href="#core-classes" title="Permalink to this heading">¶</a></h3>
-<section id="actortext">
-<h4>1. ActorText<a class="headerlink" href="#actortext" title="Permalink to this heading">¶</a></h4>
-<p><strong>Purpose</strong>: General-purpose actor for text-only language models</p>
+<section id="actormodality-modality-definition">
+<h4>1. ActorModality (Modality Definition)<a class="headerlink" href="#actormodality-modality-definition" title="Permalink to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Located in <code class="docutils literal notranslate"><span class="pre">models/actor_modality.py</span></code>, it defines the modality types for actor models and manages the parameters supported by each modality.</p>
 <p><strong>Key Features</strong>:</p>
 <ul class="simple">
-<li><p>Supports various causal language model architectures</p></li>
-<li><p>Configurable LoRA adaptation with auto-detection of target modules</p></li>
-<li><p>Flash Attention 2.0 integration for improved performance</p></li>
+<li><p><strong>Categorization</strong>: Defines model types via the <code class="docutils literal notranslate"><span class="pre">ActorModality</span></code> enum (e.g., <code class="docutils literal notranslate"><span class="pre">LANGUAGE_ONLY</span></code>, <code class="docutils literal notranslate"><span class="pre">VISION_LANGUAGE</span></code>, <code class="docutils literal notranslate"><span class="pre">AUDIO_LANGUAGE</span></code>, <code class="docutils literal notranslate"><span class="pre">OMNI</span></code>).</p></li>
+<li><p><strong>Parameter Mapping</strong>: The <code class="docutils literal notranslate"><span class="pre">MODALITY_PARAMETERS</span></code> dictionary defines special parameters supported by each modality (e.g., <code class="docutils literal notranslate"><span class="pre">pixel_values</span></code> for vision models, <code class="docutils literal notranslate"><span class="pre">audio_values</span></code> for audio models).</p></li>
+<li><p><strong>Decoupled Design</strong>: The Trainer dynamically retrieves required parameters via the <code class="docutils literal notranslate"><span class="pre">get_supported_parameters</span></code> interface, decoupling training logic from specific model input formats.</p></li>
 </ul>
-<p><strong>Design Decisions</strong>:</p>
+</section>
+<section id="actorlanguage">
+<h4>2. ActorLanguage<a class="headerlink" href="#actorlanguage" title="Permalink to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: General-purpose actor for text-only language models.</p>
+<p><strong>Key Features</strong>:</p>
 <ul class="simple">
-<li><p>Generic implementation that works with any HuggingFace causal LM</p></li>
-<li><p>Automatic detection of linear modules for LoRA injection</p></li>
-<li><p>Flexible generation parameters with post-processing for RL training</p></li>
+<li><p><strong>Text-only Support</strong>: Modality is explicitly declared as <code class="docutils literal notranslate"><span class="pre">ActorModality.LANGUAGE_ONLY</span></code>.</p></li>
+<li><p><strong>Wide Compatibility</strong>: Supports most Causal Language Model architectures available on HuggingFace.</p></li>
+<li><p><strong>Performance Optimization</strong>: Simple LoRA injection with auto-detection and Flash Attention 2.0 integration.</p></li>
 </ul>
 </section>
 <section id="actorvl-vision-language">
-<h4>2. ActorVL (Vision-Language)<a class="headerlink" href="#actorvl-vision-language" title="Permalink to this heading">¶</a></h4>
-<p><strong>Purpose</strong>: Specialized actor for vision-language models</p>
+<h4>3. ActorVL (Vision-Language)<a class="headerlink" href="#actorvl-vision-language" title="Permalink to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Specialized actor for vision-language models, handling images, videos, and multi-modal inputs.</p>
 <p><strong>Key Features</strong>:</p>
 <ul class="simple">
-<li><p>Multi-modal input processing (text + vision)</p></li>
-<li><p>Support for various VL architectures (LLaVA, Qwen2-VL, Qwen2.5-VL, Keye-VL, Qwen3-VL, etc.)</p></li>
-<li><p>Image grid processing for different aspect ratios</p></li>
-<li><p>Specialized handling for different model types</p></li>
-</ul>
-<p><strong>Design Decisions</strong>:</p>
-<ul class="simple">
-<li><p>Separate class to handle the complexity of multi-modal inputs</p></li>
-<li><p>Model-specific adaptations for different VL architectures</p></li>
-<li><p>Flexible pixel value and grid dimension handling</p></li>
+<li><p><strong>Multi-modal Capability</strong>: Modality declared as <code class="docutils literal notranslate"><span class="pre">ActorModality.VISION_LANGUAGE</span></code>.</p></li>
+<li><p><strong>Architecture Adaptation</strong>: Supports various VLM architectures including  Qwen2-VL and Qwen2.5-VL.</p></li>
+<li><p><strong>Input Handling</strong>: Manages image grids and variable-length visual sequences internally.</p></li>
 </ul>
 </section>
+<section id="actoral-audio-language">
+<h4>4. ActorAL (Audio-Language)<a class="headerlink" href="#actoral-audio-language" title="Permalink to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Specialized actor for audio-language models (e.g., Qwen2-Audio) with <code class="docutils literal notranslate"><span class="pre">ActorModality.AUDIO_LANGUAGE</span></code>, supporting audio capture and processing.</p>
+</section>
 <section id="reward-models">
-<h4>3. Reward Models<a class="headerlink" href="#reward-models" title="Permalink to this heading">¶</a></h4>
-<p><strong>Purpose</strong>: Scalar or generative reward models for evaluating response quality</p>
+<h4>5. Reward Models<a class="headerlink" href="#reward-models" title="Permalink to this heading">¶</a></h4>
+<p><strong>Purpose</strong>: Scalar (SRM) or generative (GRM) reward models for evaluating response quality.</p>
 <p><strong>Key Classes</strong>:</p>
 <ul class="simple">
-<li><p><strong>ScalarRewardModelVL</strong>: Scalar Reward Model (SRM) mapping multimodal inputs to scalar scores. Supports multiple reward heads and preference loss functions like Bradley-Terry.</p></li>
-<li><p><strong>GenerativeRewardModelVL</strong>: Generative Reward Model (GRM) leveraging generation capabilities to output text-based evaluations with reasoning (CoT).</p></li>
-</ul>
-<p><strong>Design Decisions</strong>:</p>
-<ul class="simple">
-<li><p>Shared infrastructure with Actors.</p></li>
-<li><p>Support for both scalar-based (efficient, direct for PPO) and text-based reasoning feedback mechanisms.</p></li>
+<li><p><strong>ScalarRewardModelVL/AL</strong>: Scalar Reward Models (SRM) mapping multimodal inputs to scalar scores. Supports Bradley-Terry preference loss.</p></li>
+<li><p><strong>GenerativeRewardModelVL</strong>: Generative Reward Models (GRM) leveraging generation capabilities to output text-based evaluations with reasoning (CoT).</p></li>
 </ul>
 </section>
 </section>
@@ -631,9 +627,11 @@
 </li>
 <li><a class="reference internal" href="#architecture-components">Architecture Components</a><ul>
 <li><a class="reference internal" href="#core-classes">Core Classes</a><ul>
-<li><a class="reference internal" href="#actortext">1. ActorText</a></li>
-<li><a class="reference internal" href="#actorvl-vision-language">2. ActorVL (Vision-Language)</a></li>
-<li><a class="reference internal" href="#reward-models">3. Reward Models</a></li>
+<li><a class="reference internal" href="#actormodality-modality-definition">1. ActorModality (Modality Definition)</a></li>
+<li><a class="reference internal" href="#actorlanguage">2. ActorLanguage</a></li>
+<li><a class="reference internal" href="#actorvl-vision-language">3. ActorVL (Vision-Language)</a></li>
+<li><a class="reference internal" href="#actoral-audio-language">4. ActorAL (Audio-Language)</a></li>
+<li><a class="reference internal" href="#reward-models">5. Reward Models</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#utility-functions">Utility Functions</a><ul>
