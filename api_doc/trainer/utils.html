@@ -501,9 +501,11 @@ to be called outside the optimization graph.</p>
 <dd><p>Check if vLLM version is greater than or equal to 0.13.0.</p>
 <p>Starting from vLLM 0.13.0, truncate_prompt_tokens parameter must not exceed
 max_model_len, requiring additional validation logic.</p>
+<p>This function handles cases where vLLM is not installed by returning True,
+which ensures compatibility when using the default SGLang backend.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>True if vLLM version &gt;= 0.13.0, False otherwise</p>
+<dd class="field-odd"><p>True if vLLM version &gt;= 0.13.0 or if vLLM is not installed, False otherwise</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool</p>
@@ -583,7 +585,6 @@ max_model_len, requiring additional validation logic.</p>
   <script src="../../_static/doctools.js"></script>
   <script src="../../_static/sphinx_highlight.js"></script>
   <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-  <script src="../../_static/js/language_switch.js"></script>
   
 
   
