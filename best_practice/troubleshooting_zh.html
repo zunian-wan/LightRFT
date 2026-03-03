@@ -310,7 +310,7 @@
 <p>使用以下流程图快速定位您的问题：</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>问题类型？
 ├─ 安装与设置 → 参见 [安装问题](#安装问题)
-├─ 显存溢出 (OOM) → 参见 [显存问题](#显存问题)
+├─ 显存不足 (OOM) → 参见 [显存问题](#显存问题)
 ├─ 训练问题 → 参见 [训练问题](#训练问题)
 ├─ 性能问题 → 参见 [性能问题](#性能问题)
 └─ 分布式训练 → 参见 [分布式训练问题](#分布式训练问题)
@@ -371,7 +371,7 @@ pip<span class="w"> </span>install<span class="w"> </span><span class="nv">vllm<
 <section id="id5">
 <h2>显存问题<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h2>
 <section id="out-of-memory-oom">
-<h3>问题：显存溢出 (Out of Memory, OOM) 错误<a class="headerlink" href="#out-of-memory-oom" title="Permalink to this heading">¶</a></h3>
+<h3>问题：显存不足 (Out of Memory, OOM) 错误<a class="headerlink" href="#out-of-memory-oom" title="Permalink to this heading">¶</a></h3>
 <p><strong>现象</strong>：</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">RuntimeError</span><span class="p">:</span> <span class="n">CUDA</span> <span class="n">out</span> <span class="n">of</span> <span class="n">memory</span>
 <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">OutOfMemoryError</span>
@@ -673,7 +673,34 @@ torchrun<span class="w"> </span><span class="se">\</span>
 <section id="id13">
 <h2>性能问题<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h2>
 <section id="id14">
-<h3>问题：生成速度过慢<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h3>
+<h3>问题：GPU 利用率低<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h3>
+<p><strong>现象</strong>：</p>
+<ul class="simple">
+<li><p>GPU 利用率 &lt; 80%</p></li>
+<li><p>训练速度慢于预期</p></li>
+</ul>
+<p><strong>解决方案</strong>：</p>
+<p><strong>1. 增加批量大小 (Batch Size)</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--micro_train_batch_size<span class="w"> </span><span class="m">2</span><span class="w">  </span><span class="c1"># 翻倍</span>
+--micro_rollout_batch_size<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
+<p><strong>2. 减少 CPU 瓶颈</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--num_workers<span class="w"> </span><span class="m">8</span>
+--prefetch_factor<span class="w"> </span><span class="m">2</span>
+</pre></div>
+</div>
+<p><strong>3. 启用 Flash Attention</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--flash_attn
+</pre></div>
+</div>
+<p><strong>4. 使用融合算子 (Fused Kernels)</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--fused_linear_logprob
+</pre></div>
+</div>
+</section>
+<section id="id15">
+<h3>问题：生成速度过慢<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h3>
 <p><strong>现象</strong>：</p>
 <ul class="simple">
 <li><p>生成 (rollout) 阶段占据了绝大部分训练时间</p></li>
@@ -700,10 +727,35 @@ torchrun<span class="w"> </span><span class="se">\</span>
 </div>
 </section>
 </section>
-<section id="id15">
-<h2>推理引擎问题<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h2>
 <section id="id16">
-<h3>问题：引擎权重未能同步更新<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h3>
+<h2>推理引擎问题<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h2>
+<section id="id17">
+<h3>问题：vLLM 引擎初始化失败<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h3>
+<p><strong>现象</strong>：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Failed</span> <span class="n">to</span> <span class="n">initialize</span> <span class="n">vLLM</span> <span class="n">engine</span>
+<span class="ne">RuntimeError</span><span class="p">:</span> <span class="n">Cannot</span> <span class="n">allocate</span> <span class="n">memory</span>
+</pre></div>
+</div>
+<p><strong>解决方案</strong>：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. 检查 GPU 显存</span>
+nvidia-smi
+
+<span class="c1"># 2. 降低显存分配比例 (engine_mem_util)</span>
+--engine_mem_util<span class="w"> </span><span class="m">0</span>.5
+
+<span class="c1"># 3. 减小张量并行 (TP) 大小</span>
+--engine_tp_size<span class="w"> </span><span class="m">1</span>
+
+<span class="c1"># 4. 检查模型兼容性</span>
+<span class="c1"># 某些模型可能需要特定的 vLLM 版本</span>
+
+<span class="c1"># 5. 更新 vLLM</span>
+pip<span class="w"> </span>install<span class="w"> </span>-U<span class="w"> </span>vllm
+</pre></div>
+</div>
+</section>
+<section id="id18">
+<h3>问题：引擎权重未能同步更新<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h3>
 <p><strong>现象</strong>：</p>
 <ul class="simple">
 <li><p>策略模型 (Policy Model) 已更新，但生成的文本内容无变化</p></li>
@@ -721,8 +773,8 @@ torchrun<span class="w"> </span><span class="se">\</span>
 </pre></div>
 </div>
 </section>
-<section id="id17">
-<h3>问题：引擎休眠/唤醒失败<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h3>
+<section id="id19">
+<h3>问题：引擎休眠/唤醒失败<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h3>
 <p><strong>现象</strong>：</p>
 <ul class="simple">
 <li><p>训练在生成结束后卡住</p></li>
@@ -744,8 +796,8 @@ torchrun<span class="w"> </span><span class="se">\</span>
 </section>
 <section id="checkpoint">
 <h2>检查点 (Checkpoint) 问题<a class="headerlink" href="#checkpoint" title="Permalink to this heading">¶</a></h2>
-<section id="id18">
-<h3>问题：保存检查点失败<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h3>
+<section id="id20">
+<h3>问题：保存检查点失败<a class="headerlink" href="#id20" title="Permalink to this heading">¶</a></h3>
 <p><strong>现象</strong>：</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">OSError</span><span class="p">:</span> <span class="n">Disk</span> <span class="n">quota</span> <span class="n">exceeded</span>
 <span class="ne">RuntimeError</span><span class="p">:</span> <span class="n">Cannot</span> <span class="n">save</span> <span class="n">checkpoint</span>
@@ -767,10 +819,10 @@ df<span class="w"> </span>-h
 </div>
 </section>
 </section>
-<section id="id19">
-<h2>调试技巧<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h2>
-<section id="id20">
-<h3>开启详细调试日志<a class="headerlink" href="#id20" title="Permalink to this heading">¶</a></h3>
+<section id="id21">
+<h2>调试技巧<a class="headerlink" href="#id21" title="Permalink to this heading">¶</a></h2>
+<section id="id22">
+<h3>开启详细调试日志<a class="headerlink" href="#id22" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># PyTorch 分布式调试</span>
 <span class="nb">export</span><span class="w"> </span><span class="nv">TORCH_DISTRIBUTED_DEBUG</span><span class="o">=</span>DETAIL
 
@@ -814,8 +866,8 @@ df<span class="w"> </span>-h
 </pre></div>
 </div>
 </section>
-<section id="id21">
-<h3>问题反馈清单<a class="headerlink" href="#id21" title="Permalink to this heading">¶</a></h3>
+<section id="id23">
+<h3>问题反馈清单<a class="headerlink" href="#id23" title="Permalink to this heading">¶</a></h3>
 <p>在报告 Bug 时，请提供以下信息：</p>
 <ul class="contains-task-list simple">
 <li class="task-list-item"><p><input class="task-list-item-checkbox" disabled="disabled" type="checkbox"> 硬件设备：GPU 型号、数量、显存容量</p></li>
@@ -828,8 +880,8 @@ df<span class="w"> </span>-h
 </ul>
 </section>
 </section>
-<section id="id22">
-<h2>获取更多帮助<a class="headerlink" href="#id22" title="Permalink to this heading">¶</a></h2>
+<section id="id24">
+<h2>获取更多帮助<a class="headerlink" href="#id24" title="Permalink to this heading">¶</a></h2>
 <p>如果上述方法无法解决您的问题：</p>
 <ol class="arabic simple">
 <li><p><strong>查阅 FAQ</strong>：<a class="reference internal" href="faq_zh.html"><span class="std std-doc">常见问题</span></a></p></li>
@@ -838,8 +890,8 @@ df<span class="w"> </span>-h
 <li><p><strong>提交 Bug</strong>：提交带有调试信息的新 Issue</p></li>
 </ol>
 </section>
-<section id="id23">
-<h2>常见错误信息快速索引<a class="headerlink" href="#id23" title="Permalink to this heading">¶</a></h2>
+<section id="id25">
+<h2>常见错误信息快速索引<a class="headerlink" href="#id25" title="Permalink to this heading">¶</a></h2>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>错误信息</p></th>
@@ -871,8 +923,8 @@ df<span class="w"> </span>-h
 </tbody>
 </table>
 </section>
-<section id="id24">
-<h2>另请参阅<a class="headerlink" href="#id24" title="Permalink to this heading">¶</a></h2>
+<section id="id26">
+<h2>另请参阅<a class="headerlink" href="#id26" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="faq_zh.html"><span class="std std-doc">常见问题 (FAQ)</span></a> - 汇总的常见问题解答</p></li>
 <li><p><a class="reference internal" href="#../user_guide/configuration.md"><span class="xref myst">配置指南</span></a> - 全量参数说明</p></li>
@@ -921,7 +973,7 @@ df<span class="w"> </span>-h
 </ul>
 </li>
 <li><a class="reference internal" href="#id5">显存问题</a><ul>
-<li><a class="reference internal" href="#out-of-memory-oom">问题：显存溢出 (Out of Memory, OOM) 错误</a></li>
+<li><a class="reference internal" href="#out-of-memory-oom">问题：显存不足 (Out of Memory, OOM) 错误</a></li>
 <li><a class="reference internal" href="#vllm-oom">问题：vLLM 引擎引发的 OOM</a></li>
 <li><a class="reference internal" href="#id6">问题：训练过程中的显存泄漏</a></li>
 </ul>
@@ -939,28 +991,30 @@ df<span class="w"> </span>-h
 </ul>
 </li>
 <li><a class="reference internal" href="#id13">性能问题</a><ul>
-<li><a class="reference internal" href="#id14">问题：生成速度过慢</a></li>
+<li><a class="reference internal" href="#id14">问题：GPU 利用率低</a></li>
+<li><a class="reference internal" href="#id15">问题：生成速度过慢</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id15">推理引擎问题</a><ul>
-<li><a class="reference internal" href="#id16">问题：引擎权重未能同步更新</a></li>
-<li><a class="reference internal" href="#id17">问题：引擎休眠/唤醒失败</a></li>
+<li><a class="reference internal" href="#id16">推理引擎问题</a><ul>
+<li><a class="reference internal" href="#id17">问题：vLLM 引擎初始化失败</a></li>
+<li><a class="reference internal" href="#id18">问题：引擎权重未能同步更新</a></li>
+<li><a class="reference internal" href="#id19">问题：引擎休眠/唤醒失败</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#checkpoint">检查点 (Checkpoint) 问题</a><ul>
-<li><a class="reference internal" href="#id18">问题：保存检查点失败</a></li>
+<li><a class="reference internal" href="#id20">问题：保存检查点失败</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id19">调试技巧</a><ul>
-<li><a class="reference internal" href="#id20">开启详细调试日志</a></li>
+<li><a class="reference internal" href="#id21">调试技巧</a><ul>
+<li><a class="reference internal" href="#id22">开启详细调试日志</a></li>
 <li><a class="reference internal" href="#memory-profiling">显存画像分析 (Memory Profiling)</a></li>
 <li><a class="reference internal" href="#performance-profiling">性能画像分析 (Performance Profiling)</a></li>
-<li><a class="reference internal" href="#id21">问题反馈清单</a></li>
+<li><a class="reference internal" href="#id23">问题反馈清单</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id22">获取更多帮助</a></li>
-<li><a class="reference internal" href="#id23">常见错误信息快速索引</a></li>
-<li><a class="reference internal" href="#id24">另请参阅</a></li>
+<li><a class="reference internal" href="#id24">获取更多帮助</a></li>
+<li><a class="reference internal" href="#id25">常见错误信息快速索引</a></li>
+<li><a class="reference internal" href="#id26">另请参阅</a></li>
 </ul>
 </li>
 </ul>

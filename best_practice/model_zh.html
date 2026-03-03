@@ -376,6 +376,12 @@
 <section id="actoral-audio-language">
 <h4>4. ActorAL (Audio-Language)<a class="headerlink" href="#actoral-audio-language" title="Permalink to this heading">¶</a></h4>
 <p><strong>用途</strong>：用于音频语言模型（如 Qwen2-Audio）的专用 Actor，模态为 <code class="docutils literal notranslate"><span class="pre">ActorModality.AUDIO_LANGUAGE</span></code>，支持音频采集和处理。</p>
+<p><strong>核心特性</strong>：</p>
+<ul class="simple">
+<li><p><strong>多模态能力</strong>：模态声明为 <code class="docutils literal notranslate"><span class="pre">ActorModality.AUDIO_LANGUAGE</span></code>，处理音频和文本的组合输入。</p></li>
+<li><p><strong>架构适配</strong>：支持如 Qwen2-Audio 等多种音频语言模型架构。</p></li>
+<li><p><strong>优化与 MoE</strong>：支持混合专家 (MoE) 模型，通过梯度检查点进行显存优化，以及通过 LoRA 和 Flash Attention 提升效率。</p></li>
+</ul>
 </section>
 <section id="reward-models">
 <h4>5. 奖励模型 (Reward Models)<a class="headerlink" href="#reward-models" title="Permalink to this heading">¶</a></h4>
@@ -385,6 +391,24 @@
 <li><p><strong>ScalarRewardModelVL/AL</strong>：标量奖励模型 (SRM)，将多模态输入映射为标量分数。支持 Bradley-Terry 偏好损失。</p></li>
 <li><p><strong>GenerativeRewardModelVL</strong>：生成式奖励模型 (GRM)，输出带推理过程 (CoT) 的文本评估。</p></li>
 </ul>
+<p><strong>示例行为 (Example Behavior)</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 共同输入</span>
+<span class="n">system_prompt</span> <span class="o">=</span> <span class="s2">&quot;You are a helpful visual assistant.&quot;</span>
+<span class="n">image</span> <span class="o">=</span> <span class="s2">&quot;path/to/dog.jpg&quot;</span> <span class="c1"># 视觉输入</span>
+<span class="n">query</span> <span class="o">=</span> <span class="s2">&quot;What is shown in this image?&quot;</span>
+<span class="n">response</span> <span class="o">=</span> <span class="s2">&quot;The image shows a cute brown dog playing in the park.&quot;</span>
+
+<span class="c1"># 1. 标量奖励模型 (SRM)</span>
+<span class="n">srm_score</span> <span class="o">=</span> <span class="n">srm</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="n">system_prompt</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">srm_score</span><span class="p">)</span> 
+<span class="c1"># 输出: tensor([0.88]) -&gt; 得出一个直接的浮点标量分数值</span>
+
+<span class="c1"># 2. 生成式奖励模型 (GRM)</span>
+<span class="n">grm_output</span> <span class="o">=</span> <span class="n">grm</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="n">system_prompt</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">response</span><span class="o">=</span><span class="n">response</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">grm_output</span><span class="p">)</span>
+<span class="c1"># 输出: &quot;&lt;reasoning&gt;The response accurately describes the content of the image.&lt;/reasoning&gt;&lt;score&gt;5&lt;/score&gt;&quot; -&gt; 输出文本推理过程与评分</span>
+</pre></div>
+</div>
 </section>
 </section>
 <section id="id8">
@@ -537,7 +561,7 @@
 </section>
 </section>
 <section id="id17">
-<h2>错误处理与健壮性<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h2>
+<h2>错误处理与鲁棒性<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h2>
 <section id="id18">
 <h3>1. 优雅降级<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h3>
 <ul class="simple">
@@ -563,7 +587,7 @@
 <li><p><strong>简洁性</strong>：易于使用和理解。</p></li>
 <li><p><strong>灵活性</strong>：适配各种使用场景。</p></li>
 <li><p><strong>性能</strong>：针对效率进行了优化。</p></li>
-<li><p><strong>可靠性</strong>：健壮的错误处理和验证。</p></li>
+<li><p><strong>鲁棒性</strong>：健壮的错误处理和验证。</p></li>
 <li><p><strong>可扩展性</strong>：易于添加新功能和模型类型。</p></li>
 </ul>
 <p>该架构为当前需求奠定了坚实基础，同时也为未来的功能增强和适配提供了清晰的路径。</p>
@@ -654,7 +678,7 @@
 <li><a class="reference internal" href="#id16">3. 设备与分布式训练</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id17">错误处理与健壮性</a><ul>
+<li><a class="reference internal" href="#id17">错误处理与鲁棒性</a><ul>
 <li><a class="reference internal" href="#id18">1. 优雅降级</a></li>
 <li><a class="reference internal" href="#id19">2. 验证与断言</a></li>
 </ul>

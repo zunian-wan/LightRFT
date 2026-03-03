@@ -321,6 +321,7 @@
 <ul class="simple">
 <li><p>Enhanced multimodal (VLM) support</p></li>
 <li><p>More RL algorithms (GRPO, GSPO, GMPO, REINFORCE++, CPGD, etc.)</p></li>
+<li><p>Comprehensive Reward Model support, including Scalar Reward Models (SRM) and Generative Reward Models (GRM)</p></li>
 <li><p>Better memory optimization (engine sleep, optimizer offload)</p></li>
 <li><p>Improved inference engines (vLLM, SGLang)</p></li>
 <li><p>Reward model co-location for efficiency</p></li>
@@ -333,6 +334,7 @@
 <ul class="simple">
 <li><p><strong>LLM</strong>: Qwen, Qwen2.5 and most HuggingFace models</p></li>
 <li><p><strong>VLM</strong>: Qwen-VL, Qwen2-VL</p></li>
+<li><p><strong>Audio</strong>: Qwen2-Audio</p></li>
 <li><p><strong>Custom</strong>: Easy to add new models via monkey patching</p></li>
 </ul>
 </section>
@@ -434,7 +436,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <p><strong>A</strong>:</p>
 <ol class="arabic simple">
 <li><p>Increase batch sizes (if memory allows)</p></li>
-<li><p>Use FP8 inference (Work in Progress)</p></li>
+<li><p>Use FP8 inference (Work in Progress, only in vLLM)</p></li>
 <li><p>Enable Flash Attention: <code class="docutils literal notranslate"><span class="pre">--flash_attn</span></code></p></li>
 <li><p>Reduce <code class="docutils literal notranslate"><span class="pre">n_samples_per_prompt</span></code> if possible</p></li>
 <li><p>Use tensor parallelism for inference: <code class="docutils literal notranslate"><span class="pre">--engine_tp_size</span> <span class="pre">2</span></code></p></li>
@@ -472,6 +474,15 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><p>Want to preserve base capabilities</p></li>
 <li><p>Need controlled policy updates</p></li>
 <li><p>Preventing catastrophic forgetting</p></li>
+</ul>
+</section>
+<section id="q-what-is-clip-higher">
+<h3>Q: What is Clip Higher?<a class="headerlink" href="#q-what-is-clip-higher" title="Permalink to this heading">¶</a></h3>
+<p><strong>A</strong>: An improved clipping scheme with separate upper/lower bounds for positive/negative advantages. Better for:</p>
+<ul class="simple">
+<li><p>Noisy rewards</p></li>
+<li><p>Large distribution shifts</p></li>
+<li><p>Unstable training</p></li>
 </ul>
 </section>
 </section>
@@ -727,6 +738,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><a class="reference internal" href="#algorithm-questions">Algorithm Questions</a><ul>
 <li><a class="reference internal" href="#q-what-s-the-difference-between-grpo-and-ppo">Q: What’s the difference between GRPO and PPO?</a></li>
 <li><a class="reference internal" href="#q-when-should-i-use-cpgd">Q: When should I use CPGD?</a></li>
+<li><a class="reference internal" href="#q-what-is-clip-higher">Q: What is Clip Higher?</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#debugging-questions">Debugging Questions</a><ul>

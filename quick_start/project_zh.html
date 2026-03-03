@@ -337,18 +337,18 @@
 <ul class="simple">
 <li><p>用于 RL 训练的 Prompt 数据集（文本和视觉语言）</p></li>
 <li><p>用于有监督微调的 SFT 数据集（文本和视觉语言）</p></li>
-<li><p>奖励模型数据集（通用和安全奖励模型）</p></li>
+<li><p>奖励模型数据集（生成式和标量奖励模型）</p></li>
 <li><p>音频语言数据集支持</p></li>
 <li><p>数据预处理和分词 (tokenization) 工具</p></li>
 </ul>
 </section>
 <section id="models-module">
 <h3>模型模块 (Models Module)<a class="headerlink" href="#models-module" title="Permalink to this heading">¶</a></h3>
-<p>Models 模块定义了语言模型和视觉语言模型进行强化学习所需的神经架构和适配。它专注于通过 monkey patch（猴子补丁）方法对现有模型架构进行最小限度的修改。</p>
+<p>Models 模块定义了语言模型和视觉语言模型进行强化学习所需的神经架构和适配。它专注于通过 monkey patch 方法对现有模型架构进行最小限度的修改。</p>
 <p>核心组件：</p>
 <ul class="simple">
 <li><p>Actor 网络实现（语言、视觉语言、音频语言）</p></li>
-<li><p>奖励模型实现（通用和安全奖励模型）</p></li>
+<li><p>奖励模型实现（生成式和标量奖励模型）</p></li>
 <li><p>策略优化的损失函数定义</p></li>
 <li><p>通过 monkey patching 进行的非侵入式模型修改</p></li>
 <li><p>支持多种模型架构（LLaMA、Qwen 等）</p></li>
@@ -363,6 +363,7 @@
 <li><p>用于基于 ZeRO 优化的 DeepSpeed 集成</p></li>
 <li><p>完全分片数据并行 (FSDP) 实现</p></li>
 <li><p>高效推理引擎 (vLLM, SGLang)</p></li>
+<li><p>训练引擎与推理引擎间的模型参数高效同步</p></li>
 <li><p>分布式张量操作工具</p></li>
 <li><p>检查点 (Checkpoint) 管理和广播</p></li>
 <li><p>策略选择与配置</p></li>
@@ -373,11 +374,12 @@
 <p>Trainer 模块实现了强化学习算法和训练循环。它协调模型、策略和优化过程之间的交互。</p>
 <p>核心组件：</p>
 <ul class="simple">
-<li><p>PPO (Proximal Policy Optimization) 实现</p></li>
-<li><p>经验生成与收集</p></li>
-<li><p>优势估计 (Advantage estimation) 与回报计算 (return computation)</p></li>
+<li><p>策略优化算法实现：PPO, GRPO, GSPO, GMPO, Dr.GRPO, DAPO</p></li>
+<li><p>优势估计 (Advantage estimation) 与回报计算：REINFORCE++, CPGD</p></li>
+<li><p>经验生成与采样策略：FIRE Sampling</p></li>
+<li><p>奖励处理与稳定性增强：Reward Norm/Clip, High Entropy Token Selection</p></li>
 <li><p>策略与价值函数更新</p></li>
-<li><p>重放缓存 (Replay buffer) 管理（标准和视觉语言）</p></li>
+<li><p>重放缓存 (Replay buffer) 管理</p></li>
 <li><p>KL 散度控制</p></li>
 <li><p>SPMD (单程序多数据) 训练支持</p></li>
 </ul>
@@ -393,7 +395,7 @@
 <li><p>多模态输入的处理器</p></li>
 <li><p>远程奖励模型工具</p></li>
 <li><p>计时器与性能分析 (profiling) 工具</p></li>
-<li><p>用于分析的轨迹 (Trajectory) 保存</p></li>
+<li><p>用于训练效果分析的轨迹 (Trajectory) 保存</p></li>
 </ul>
 </section>
 </section>
@@ -405,8 +407,8 @@
 <li><p><strong>数据加载</strong>：Datasets 模块加载并预处理训练数据，为 prompt、SFT 或奖励建模创建 dataloader。</p></li>
 <li><p><strong>模型准备</strong>：加载预训练模型，并通过 Models 模块中的策略性 monkey patching 将其适配用于 RL。</p></li>
 <li><p><strong>策略选择</strong>：根据配置选择并初始化适当的分布式训练策略。</p></li>
-<li><p><strong>训练循环</strong>：Trainer 模块驱动训练过程，生成经验、计算奖励并更新策略。</p></li>
-<li><p><strong>推理优化</strong>：在生成阶段，为了提高效率，可能会采用专门的推理引擎 (vLLM/SGLang)。</p></li>
+<li><p><strong>经验生成</strong>：系统利用 Strategy 模块集成的推理引擎（如 vLLM/SGLang）进行高效的大规模并行采样，生成用于训练的经验数据 (Rollout)。</p></li>
+<li><p><strong>模型优化</strong>：Trainer 模块基于生成的经验计算奖励和优势，并执行策略更新。更新后的模型参数随后被同步回推理引擎，为下一轮迭代做准备。</p></li>
 <li><p><strong>检查点与评估</strong>：系统定期保存模型状态并评估性能。</p></li>
 </ol>
 </section>
@@ -416,9 +418,9 @@
 <ul class="simple">
 <li><p><strong>新数据集</strong>：可以通过扩展 Datasets 模块中的基础数据集类来添加额外的数据集类型。</p></li>
 <li><p><strong>新模型</strong>：可以通过 monkey patch 系统或创建新的 actor/reward 模型类来增加对其他模型架构的支持。</p></li>
-<li><p><strong>替代策略</strong>：可以通过扩展 strategy 基类来实现新的分布式训练方法。</p></li>
+<li><p><strong>新的分布式训练策略</strong>：可以通过扩展 strategy 基类来实现新的分布式训练方法。</p></li>
 <li><p><strong>自定义 RL 算法</strong>：不同的强化学习算法可以实现为新的 trainer 类。</p></li>
-<li><p><strong>推理优化</strong>：可以通过 strategy 模块集成额外的推理引擎。</p></li>
+<li><p><strong>推理优化</strong>：可以通过 strategy 模块集成额外的推理引擎，并持续集成 vLLM 和 SGLang 等推理引擎的最新版本特性。</p></li>
 <li><p><strong>自定义工具</strong>：可以添加新的工具函数和处理器以支持特定用例。</p></li>
 </ul>
 <p>这种模块化设计使 LightRFT 能够适应新的研究方向、模型架构和硬件配置，同时为用户保持一致的接口。</p>

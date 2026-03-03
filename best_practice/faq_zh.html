@@ -317,6 +317,7 @@
 <ul class="simple">
 <li><p>增强了多模态 (VLM) 支持</p></li>
 <li><p>更多的强化学习算法（GRPO, GSPO, GMPO, REINFORCE++, CPGD 等）</p></li>
+<li><p>更全面的奖励模型 (Reward Model) 支持，包括标量奖励模型 (SRM) 和生成式奖励模型 (GRM)</p></li>
 <li><p>更好的显存优化（推理引擎休眠、优化器卸载）</p></li>
 <li><p>改进的推理引擎（vLLM, SGLang）</p></li>
 <li><p>为了提高效率，支持奖励模型 (RM) 的同机部署 (Co-location)</p></li>
@@ -329,6 +330,7 @@
 <ul class="simple">
 <li><p><strong>LLM</strong>: Qwen, Qwen2.5 以及大多数 HuggingFace 模型</p></li>
 <li><p><strong>VLM</strong>: Qwen-VL, Qwen2-VL</p></li>
+<li><p><strong>Audio</strong>: Qwen2-Audio</p></li>
 <li><p><strong>自定义模型</strong>: 通过 monkey patching 可以轻松添加新模型</p></li>
 </ul>
 </section>
@@ -430,7 +432,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <p><strong>A</strong>:</p>
 <ol class="arabic simple">
 <li><p>增大 Batch Size（如果显存允许）</p></li>
-<li><p>使用 FP8 推理 (vLLM)</p></li>
+<li><p>使用 FP8 推理（正在开发中，仅限 vLLM）</p></li>
 <li><p>开启 Flash Attention：<code class="docutils literal notranslate"><span class="pre">--flash_attn</span></code></p></li>
 <li><p>如果可能，减小 <code class="docutils literal notranslate"><span class="pre">n_samples_per_prompt</span></code></p></li>
 <li><p>生成阶段使用张量并行：<code class="docutils literal notranslate"><span class="pre">--engine_tp_size</span> <span class="pre">2</span></code></p></li>
@@ -467,6 +469,15 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><p>想要保留基础模型的能力</p></li>
 <li><p>需要受控的策略更新</p></li>
 <li><p>防止灾难性遗忘</p></li>
+</ul>
+</section>
+<section id="q-clip-higher">
+<h3>Q: 什么是 Clip Higher?<a class="headerlink" href="#q-clip-higher" title="Permalink to this heading">¶</a></h3>
+<p><strong>A</strong>: 一种改进的裁剪方案，为正负优势 (advantages) 使用独立的上下界。更适用于：</p>
+<ul class="simple">
+<li><p>噪声奖励</p></li>
+<li><p>大分布偏移</p></li>
+<li><p>不稳定的训练过程</p></li>
 </ul>
 </section>
 </section>
@@ -710,6 +721,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><a class="reference internal" href="#id12">算法问题</a><ul>
 <li><a class="reference internal" href="#q-grpo-ppo">Q: GRPO 和 PPO 有什么区别？</a></li>
 <li><a class="reference internal" href="#q-cpgd">Q: 什么时候应该使用 CPGD？</a></li>
+<li><a class="reference internal" href="#q-clip-higher">Q: 什么是 Clip Higher?</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id13">调试问题</a><ul>

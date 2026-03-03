@@ -403,7 +403,7 @@ python<span class="w"> </span>test_chat.py<span class="w"> </span>--model_path<s
 </div>
 </section>
 <section id="id11">
-<h3>基于图像的测试<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h3>
+<h3>图文输入测试<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
 <span class="w">  </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;query&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Describe what you see in this image.&quot;</span><span class="p">,</span>
@@ -450,7 +450,7 @@ python<span class="w"> </span>test_chat.py<span class="w"> </span>--model_path<s
 <td><p>Top-p 采样参数</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--system_prompt</span></code></p></td>
-<td><p>(默认)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
 <td><p>自定义系统提示词</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--batch</span></code></p></td>
@@ -582,7 +582,7 @@ The answer is [solution].
 <ol class="arabic simple">
 <li><p><strong>模型加载</strong>：初次运行需要一定的模型加载时间。</p></li>
 <li><p><strong>图像重置</strong>：每次对话后图像会自动重置。</p></li>
-<li><p><strong>历时管理</strong>：使用 <code class="docutils literal notranslate"><span class="pre">/clear</span></code> 重置对话历史。</p></li>
+<li><p><strong>历史管理</strong>：使用 <code class="docutils literal notranslate"><span class="pre">/clear</span></code> 命令可以随时重置多轮对话的上下文历史。</p></li>
 <li><p><strong>批量独立性</strong>：每个批量测试任务独立运行。</p></li>
 </ol>
 </section>
@@ -640,7 +640,7 @@ The answer is [solution].
 <li><a class="reference internal" href="#id8">交互命令</a></li>
 <li><a class="reference internal" href="#id9">批量测试文件格式</a><ul>
 <li><a class="reference internal" href="#id10">纯文本测试</a></li>
-<li><a class="reference internal" href="#id11">基于图像的测试</a></li>
+<li><a class="reference internal" href="#id11">图文输入测试</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#id12">配置参数</a></li>

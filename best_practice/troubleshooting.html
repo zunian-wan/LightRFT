@@ -676,6 +676,33 @@ torchrun<span class="w"> </span><span class="se">\</span>
 </section>
 <section id="performance-issues">
 <h2>Performance Issues<a class="headerlink" href="#performance-issues" title="Permalink to this heading">¶</a></h2>
+<section id="problem-low-gpu-utilization">
+<h3>Problem: Low GPU Utilization<a class="headerlink" href="#problem-low-gpu-utilization" title="Permalink to this heading">¶</a></h3>
+<p><strong>Symptoms</strong>:</p>
+<ul class="simple">
+<li><p>GPU utilization &lt; 80%</p></li>
+<li><p>Training slower than expected</p></li>
+</ul>
+<p><strong>Solutions</strong>:</p>
+<p><strong>1. Increase Batch Size</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--micro_train_batch_size<span class="w"> </span><span class="m">2</span><span class="w">  </span><span class="c1"># Double it</span>
+--micro_rollout_batch_size<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
+<p><strong>2. Reduce CPU Bottleneck</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--num_workers<span class="w"> </span><span class="m">8</span>
+--prefetch_factor<span class="w"> </span><span class="m">2</span>
+</pre></div>
+</div>
+<p><strong>3. Enable Flash Attention</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--flash_attn
+</pre></div>
+</div>
+<p><strong>4. Use Fused Kernels</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>--fused_linear_logprob
+</pre></div>
+</div>
+</section>
 <section id="problem-generation-too-slow">
 <h3>Problem: Generation Too Slow<a class="headerlink" href="#problem-generation-too-slow" title="Permalink to this heading">¶</a></h3>
 <p><strong>Symptoms</strong>:</p>
@@ -706,6 +733,31 @@ torchrun<span class="w"> </span><span class="se">\</span>
 </section>
 <section id="inference-engine-issues">
 <h2>Inference Engine Issues<a class="headerlink" href="#inference-engine-issues" title="Permalink to this heading">¶</a></h2>
+<section id="problem-vllm-engine-fails-to-initialize">
+<h3>Problem: vLLM Engine Fails to Initialize<a class="headerlink" href="#problem-vllm-engine-fails-to-initialize" title="Permalink to this heading">¶</a></h3>
+<p><strong>Symptoms</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Failed</span> <span class="n">to</span> <span class="n">initialize</span> <span class="n">vLLM</span> <span class="n">engine</span>
+<span class="ne">RuntimeError</span><span class="p">:</span> <span class="n">Cannot</span> <span class="n">allocate</span> <span class="n">memory</span>
+</pre></div>
+</div>
+<p><strong>Solution</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Check GPU memory</span>
+nvidia-smi
+
+<span class="c1"># 2. Reduce memory allocation</span>
+--engine_mem_util<span class="w"> </span><span class="m">0</span>.5
+
+<span class="c1"># 3. Use smaller TP size</span>
+--engine_tp_size<span class="w"> </span><span class="m">1</span>
+
+<span class="c1"># 4. Check model compatibility</span>
+<span class="c1"># Some models need specific vLLM versions</span>
+
+<span class="c1"># 5. Update vLLM</span>
+pip<span class="w"> </span>install<span class="w"> </span>-U<span class="w"> </span>vllm
+</pre></div>
+</div>
+</section>
 <section id="problem-engine-not-updating-weights">
 <h3>Problem: Engine Not Updating Weights<a class="headerlink" href="#problem-engine-not-updating-weights" title="Permalink to this heading">¶</a></h3>
 <p><strong>Symptoms</strong>:</p>
@@ -955,10 +1007,12 @@ df<span class="w"> </span>-h
 </ul>
 </li>
 <li><a class="reference internal" href="#performance-issues">Performance Issues</a><ul>
+<li><a class="reference internal" href="#problem-low-gpu-utilization">Problem: Low GPU Utilization</a></li>
 <li><a class="reference internal" href="#problem-generation-too-slow">Problem: Generation Too Slow</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#inference-engine-issues">Inference Engine Issues</a><ul>
+<li><a class="reference internal" href="#problem-vllm-engine-fails-to-initialize">Problem: vLLM Engine Fails to Initialize</a></li>
 <li><a class="reference internal" href="#problem-engine-not-updating-weights">Problem: Engine Not Updating Weights</a></li>
 <li><a class="reference internal" href="#problem-engine-sleep-wake-issues">Problem: Engine Sleep/Wake Issues</a></li>
 </ul>
