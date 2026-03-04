@@ -335,7 +335,7 @@
 <li><p><strong>LLM</strong>: Qwen, Qwen2.5 and most HuggingFace models</p></li>
 <li><p><strong>VLM</strong>: Qwen-VL, Qwen2-VL</p></li>
 <li><p><strong>Audio</strong>: Qwen2-Audio</p></li>
-<li><p><strong>Custom</strong>: Easy to add new models via monkey patching</p></li>
+<li><p><strong>Custom</strong>: Easily inherit and extend existing model architectures</p></li>
 </ul>
 </section>
 <section id="q-what-hardware-is-required">
@@ -492,16 +492,6 @@ pip<span class="w"> </span>install<span class="w"> </span>flash_attn-2.8.3+cu12t
 </ul>
 <p>GRPO is simpler and more memory-efficient.</p>
 </section>
-<section id="q-when-should-i-use-cpgd">
-<h3>Q: When should I use CPGD?<a class="headerlink" href="#q-when-should-i-use-cpgd" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: Use CPGD when:</p>
-<ul class="simple">
-<li><p>Fine-tuning pre-trained models</p></li>
-<li><p>Want to preserve base capabilities</p></li>
-<li><p>Need controlled policy updates</p></li>
-<li><p>Preventing catastrophic forgetting</p></li>
-</ul>
-</section>
 <section id="q-what-is-clip-higher">
 <h3>Q: What is Clip Higher?<a class="headerlink" href="#q-what-is-clip-higher" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: An improved clipping scheme with separate upper/lower bounds for positive/negative advantages. Better for:</p>
@@ -605,13 +595,17 @@ pip<span class="w"> </span>install<span class="w"> </span>flash_attn-2.8.3+cu12t
 </section>
 <section id="q-how-do-i-add-a-new-model-architecture">
 <h3>Q: How do I add a new model architecture?<a class="headerlink" href="#q-how-do-i-add-a-new-model-architecture" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: Create a monkey patch in <code class="docutils literal notranslate"><span class="pre">lightrft/models/monkey_patch/</span></code>:</p>
+<p><strong>A</strong>: There are two methods:</p>
+<ol class="arabic simple">
+<li><p><strong>Standard approach</strong>: Inherit from base classes like <code class="docutils literal notranslate"><span class="pre">ActorLanguage</span></code> or <code class="docutils literal notranslate"><span class="pre">ActorVL</span></code>, and add the implementation in the <code class="docutils literal notranslate"><span class="pre">lightrft/models/</span></code> directory.</p></li>
+<li><p><strong>Monkey Patching</strong>: Create a monkey patch in <code class="docutils literal notranslate"><span class="pre">lightrft/models/monkey_patch/</span></code>:</p></li>
+</ol>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># your_model.py</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">patch_your_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
-    <span class="c1"># Add custom forward methods</span>
+    <span class="c1"># Add custom forward methods, etc.</span>
     <span class="k">pass</span>
 
-<span class="c1"># In apply.py</span>
+<span class="c1"># Register in apply.py</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.your_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch_your_model</span>
 </pre></div>
 </div>
@@ -765,7 +759,6 @@ pip<span class="w"> </span>install<span class="w"> </span>flash_attn-2.8.3+cu12t
 </li>
 <li><a class="reference internal" href="#algorithm-questions">Algorithm Questions</a><ul>
 <li><a class="reference internal" href="#q-what-s-the-difference-between-grpo-and-ppo">Q: What’s the difference between GRPO and PPO?</a></li>
-<li><a class="reference internal" href="#q-when-should-i-use-cpgd">Q: When should I use CPGD?</a></li>
 <li><a class="reference internal" href="#q-what-is-clip-higher">Q: What is Clip Higher?</a></li>
 </ul>
 </li>

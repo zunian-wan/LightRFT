@@ -331,7 +331,7 @@
 <li><p><strong>LLM</strong>: Qwen, Qwen2.5 以及大多数 HuggingFace 模型</p></li>
 <li><p><strong>VLM</strong>: Qwen-VL, Qwen2-VL</p></li>
 <li><p><strong>Audio</strong>: Qwen2-Audio</p></li>
-<li><p><strong>自定义模型</strong>: 通过 monkey patching 可以轻松添加新模型</p></li>
+<li><p><strong>自定义模型</strong>: 轻松继承并扩展现有模型架构</p></li>
 </ul>
 </section>
 <section id="id2">
@@ -461,16 +461,6 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 </ul>
 <p>GRPO 系统更简洁，显存效率更高。</p>
 </section>
-<section id="q-cpgd">
-<h3>Q: 什么时候应该使用 CPGD？<a class="headerlink" href="#q-cpgd" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 在以下情况使用 CPGD：</p>
-<ul class="simple">
-<li><p>对预训练模型进行微调</p></li>
-<li><p>想要保留基础模型的能力</p></li>
-<li><p>需要受控的策略更新</p></li>
-<li><p>防止灾难性遗忘</p></li>
-</ul>
-</section>
 <section id="q-clip-higher">
 <h3>Q: 什么是 Clip Higher?<a class="headerlink" href="#q-clip-higher" title="Permalink to this heading">¶</a></h3>
 <p><strong>A</strong>: 一种改进的裁剪方案，为正负优势 (advantages) 使用独立的上下界。更适用于：</p>
@@ -574,7 +564,11 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 </section>
 <section id="id18">
 <h3>Q: 如何添加新的模型架构？<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h3>
-<p><strong>A</strong>: 在 <code class="docutils literal notranslate"><span class="pre">lightrft/models/monkey_patch/</span></code> 中创建 monkey patch：</p>
+<p><strong>A</strong>: 有以下两种方法：</p>
+<ol class="arabic simple">
+<li><p><strong>常规方法</strong>：通过继承 <code class="docutils literal notranslate"><span class="pre">ActorLanguage</span></code> 或 <code class="docutils literal notranslate"><span class="pre">ActorVL</span></code> 等基类来实现新的模型架构，并在 <code class="docutils literal notranslate"><span class="pre">lightrft/models/</span></code> 目录下添加相应实现。</p></li>
+<li><p><strong>Monkey Patch 方法</strong>：在 <code class="docutils literal notranslate"><span class="pre">lightrft/models/monkey_patch/</span></code> 中创建 monkey patch：</p></li>
+</ol>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># your_model.py</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">patch_your_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
     <span class="c1"># 添加自定义 forward 方法等</span>
@@ -720,7 +714,6 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 </li>
 <li><a class="reference internal" href="#id12">算法问题</a><ul>
 <li><a class="reference internal" href="#q-grpo-ppo">Q: GRPO 和 PPO 有什么区别？</a></li>
-<li><a class="reference internal" href="#q-cpgd">Q: 什么时候应该使用 CPGD？</a></li>
 <li><a class="reference internal" href="#q-clip-higher">Q: 什么是 Clip Higher?</a></li>
 </ul>
 </li>
