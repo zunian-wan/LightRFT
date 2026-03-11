@@ -7,6 +7,7 @@ Data Parallel v2). It handles the complexities of gathering sharded
 parameters and efficiently transferring them to inference engines like vllm and sglang.
 """
 
+import time
 from collections import OrderedDict
 from typing import Any
 
@@ -155,6 +156,9 @@ class BroadcastManager:
         lora_config = model.peft_config.get("default") if is_peft else None
         scaling = lora_config.lora_alpha / lora_config.r if lora_config else 1.0
 
+        torch.cuda.synchronize()
+        total_merge_time = 0.0
+        merge_start_time = time.time()
         for name, param in param_dict.items():
             count += 1
 
@@ -211,6 +215,17 @@ class BroadcastManager:
                 )
 
             del full_weight
+        
+        torch.cuda.synchronize()
+        total_merge_time = time.time() - merge_start_time
+
+        if is_peft and total_merge_time > 0:
+            self.strategy.print(f"FSDP LoRA adapters gathering and merging took {total_merge_time:.2f} seconds.")
+        
+        import torch.distributed as dist
+        if dist.get_rank() == 0:
+            import ipdb; ipdb.set_trace()
+        dist.barrier()
 
     def broadcast_to_engine(self):
         """
@@ -228,14 +243,24 @@ class BroadcastManager:
                 is_peft = hasattr(self.actor.model, "merge_adapter")
                 if is_peft:
                     self.strategy.print("Merging LoRA adapters for weight synchronization...")
+                    torch.cuda.synchronize()
+                    merge_start_time = time.time()
                     self.actor.model.merge_adapter()
+                    torch.cuda.synchronize()
+                    merge_time = time.time() - merge_start_time
+                    self.strategy.print(f"LoRA adapters merged in {merge_time:.2f} seconds.")
 
                 try:
                     self._deepspeed_broadcast()
                 finally:
                     if is_peft:
                         self.strategy.print("Unmerging LoRA adapters after synchronization...")
+                        torch.cuda.synchronize()
+                        unmerge_start_time = time.time()
                         self.actor.model.unmerge_adapter()
+                        torch.cuda.synchronize()
+                        unmerge_time = time.time() - unmerge_start_time
+                        self.strategy.print(f"LoRA adapters unmerged. Unmerging took {unmerge_time:.2f} seconds.")
         else:
             raise RuntimeError(f"Unsupported engine type: {self.strategy.engine_type}")
 
