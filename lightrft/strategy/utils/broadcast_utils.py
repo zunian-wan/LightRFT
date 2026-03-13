@@ -158,7 +158,7 @@ class BroadcastManager:
 
         torch.cuda.synchronize()
         total_merge_time = 0.0
-        merge_start_time = time.time()
+        total_broadcast_time = 0.0
         for name, param in param_dict.items():
             count += 1
 
@@ -170,6 +170,7 @@ class BroadcastManager:
             effective_name = name
             full_weight = None
 
+            t_merge_start = time.time()
             if ".base_layer.weight" in name:
                 if self.strategy.engine_type == "vllm":
                     raise NotImplementedError("vLLM is not supported for FSDP LoRA broadcasting yet.")
@@ -196,8 +197,11 @@ class BroadcastManager:
                 else:
                     full_weight = param_on_device.to(dst_dtype)
                 del param_on_device
+            torch.cuda.synchronize()
+            total_merge_time += time.time() - t_merge_start
 
             # Broadcast to engine
+            t_broadcast_start = time.time()
             if self.strategy.engine_type == "vllm":
                 # TODO：map weight name for vllm
                 kwargs = dict(
@@ -214,13 +218,16 @@ class BroadcastManager:
                     sglang_name, full_weight.data, flush_cache=(count == num_params)
                 )
 
+            torch.cuda.synchronize()
+            total_broadcast_time += time.time() - t_broadcast_start
+
             del full_weight
         
         torch.cuda.synchronize()
-        total_merge_time = time.time() - merge_start_time
 
         if is_peft and total_merge_time > 0:
             self.strategy.print(f"FSDP LoRA adapters gathering and merging took {total_merge_time:.2f} seconds.")
+        self.strategy.print(f"FSDP weights broadcasting to engine took {total_broadcast_time:.2f} seconds.")
         
         import torch.distributed as dist
         if dist.get_rank() == 0:
